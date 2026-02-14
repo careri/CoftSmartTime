@@ -676,6 +676,9 @@ export class TimeReportProvider {
                     white-space: normal;
                     word-break: break-all;
                 }
+                td:has(.combobox-wrapper) {
+                    overflow: visible;
+                }
                 th {
                     background-color: var(--vscode-editor-lineHighlightBackground);
                 }
@@ -718,6 +721,7 @@ export class TimeReportProvider {
                     padding: 16px;
                     border: 1px solid var(--vscode-panel-border);
                     border-radius: 4px;
+                    overflow: visible;
                 }
                 .overview-section h2 {
                     margin-top: 0;
