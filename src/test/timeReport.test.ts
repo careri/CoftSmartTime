@@ -56,12 +56,21 @@ suite("TimeReport Test Suite", () => {
 
   test("loadProjects returns saved mappings", async () => {
     const projectsPath = path.join(testConfig.data, "projects.json");
-    const projectData = { main: "Project Alpha", develop: "Project Beta" };
+    const projectData = {
+      main: { "/workspace/project1": "Project Alpha" },
+      develop: { "/workspace/project2": "Project Beta" },
+    };
     await fs.writeFile(projectsPath, JSON.stringify(projectData), "utf-8");
 
     const projects = await provider.loadProjects();
-    assert.strictEqual(projects["main"], "Project Alpha");
-    assert.strictEqual(projects["develop"], "Project Beta");
+    assert.strictEqual(
+      projects["main"]["/workspace/project1"],
+      "Project Alpha",
+    );
+    assert.strictEqual(
+      projects["develop"]["/workspace/project2"],
+      "Project Beta",
+    );
   });
 
   test("loadProjects returns empty object for invalid JSON", async () => {
@@ -70,6 +79,49 @@ suite("TimeReport Test Suite", () => {
 
     const projects = await provider.loadProjects();
     assert.deepStrictEqual(projects, {});
+  });
+
+  test("loadProjects returns empty object for old flat format", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    const oldFormat = { main: "Project Alpha", develop: "Project Beta" };
+    await fs.writeFile(projectsPath, JSON.stringify(oldFormat), "utf-8");
+
+    const projects = await provider.loadProjects();
+    assert.deepStrictEqual(projects, {});
+  });
+
+  test("lookupProject finds exact branch+directory match", () => {
+    const projects = {
+      feature: { "/project-a": "Alpha", "/project-b": "Beta" },
+    };
+    assert.strictEqual(
+      provider.lookupProject(projects, "feature", "/project-a"),
+      "Alpha",
+    );
+    assert.strictEqual(
+      provider.lookupProject(projects, "feature", "/project-b"),
+      "Beta",
+    );
+  });
+
+  test("lookupProject falls back to same branch other directory", () => {
+    const projects = {
+      feature: { "/project-a": "Alpha" },
+    };
+    assert.strictEqual(
+      provider.lookupProject(projects, "feature", "/other-project"),
+      "Alpha",
+    );
+  });
+
+  test("lookupProject returns empty string for unknown branch", () => {
+    const projects = {
+      feature: { "/project-a": "Alpha" },
+    };
+    assert.strictEqual(
+      provider.lookupProject(projects, "unknown", "/project-a"),
+      "",
+    );
   });
 
   test("assignBranches picks branch with most files per time slot", () => {
@@ -103,7 +155,10 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    const projects = { main: "Alpha", develop: "Beta" };
+    const projects = {
+      main: { "/project": "Alpha" },
+      develop: { "/project": "Beta" },
+    };
     provider.assignBranches(report, projects);
 
     // Both entries in 09:00 should be assigned to "main" (3 files vs 1)
@@ -157,7 +212,10 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    const projects = { main: "Alpha", develop: "Beta" };
+    const projects = {
+      main: { "/project": "Alpha" },
+      develop: { "/project": "Beta" },
+    };
     provider.assignBranches(report, projects);
 
     // 09:00: develop wins (2 files vs 1)

@@ -114,10 +114,13 @@ Timereports are saved by day in COFT_DATA/reports/year/month/day
 ### Project
 
 ✅ A mapping between branch and project, COFT_DATA/projects.json
+✅ Dont save default branches like main or master.
 
 ```json
 {
-    "<ITEM_BRANCH>": "<PROJECT>",
+    "<ITEM_BRANCH>": {
+        "<ITEM_DIR>: "<PROJECT>"
+    },
 }
 
 
@@ -201,7 +204,7 @@ Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15
 ###### Overview
 
 ✅ At the top show a project view. Load projects.json
-✅ Collect the used branches from the batch and map to existing values in projects.
+✅ Collect TIME_SLOTS by COMPOSITE_KEY and map to existing values in projects. If not found check if branch is bound in another directory.
 
 ✅ Show start of day and end of day. First and last changed file.
 
@@ -219,7 +222,7 @@ Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15
 Group them by:
 
 - ✅ COFT_VIEW_GROUP_BY_MINUTES <readonly>
-- ✅ Composite key of ITEM_BRANCH and ITEM_DIR <readonly>
+- ✅ Composite key of ITEM_BRANCH and ITEM_DIR <readonly> (COMPOSITE_KEY)
 
 
 ##### Batch Items

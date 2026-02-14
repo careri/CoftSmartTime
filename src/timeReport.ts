@@ -27,11 +27,16 @@ interface TimeReport {
 }
 
 interface ProjectMap {
-  [branch: string]: string;
+  [branch: string]: {
+    [directory: string]: string;
+  };
 }
+
+const DEFAULT_BRANCHES = ["main", "master"];
 
 interface OverviewEntry {
   branch: string;
+  directory: string;
   project: string;
   timeSlots: number;
 }
@@ -111,7 +116,11 @@ export class TimeReportProvider {
         await this.saveReport(message.data);
         break;
       case "updateProjectMapping":
-        await this.updateProjectMapping(message.branch, message.project);
+        await this.updateProjectMapping(
+          message.branch,
+          message.project,
+          message.directory,
+        );
         break;
     }
   }
@@ -257,7 +266,20 @@ export class TimeReportProvider {
     const projectsPath = path.join(this.config.data, "projects.json");
     try {
       const content = await fs.readFile(projectsPath, "utf-8");
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      // Validate new format: { branch: { directory: project } }
+      if (typeof parsed !== "object" || parsed === null) {
+        return {};
+      }
+      for (const key of Object.keys(parsed)) {
+        if (typeof parsed[key] !== "object" || parsed[key] === null) {
+          this.outputChannel.appendLine(
+            "projects.json has unexpected format, treating as empty",
+          );
+          return {};
+        }
+      }
+      return parsed;
     } catch {
       return {};
     }
@@ -276,12 +298,38 @@ export class TimeReportProvider {
   private async updateProjectMapping(
     branch: string,
     project: string,
+    directory: string,
   ): Promise<void> {
+    if (DEFAULT_BRANCHES.includes(branch)) {
+      return;
+    }
     const projects = await this.loadProjects();
-    projects[branch] = project;
+    if (!projects[branch]) {
+      projects[branch] = {};
+    }
+    projects[branch][directory] = project;
     await this.saveProjects(projects);
     // Refresh view to update timetable project columns
     await this.updateView();
+  }
+
+  lookupProject(
+    projects: ProjectMap,
+    branch: string,
+    directory: string,
+  ): string {
+    // 1. Exact match: branch + directory
+    if (projects[branch] && projects[branch][directory]) {
+      return projects[branch][directory];
+    }
+    // 2. Fallback: same branch in any other directory
+    if (projects[branch]) {
+      const dirs = Object.keys(projects[branch]);
+      if (dirs.length > 0) {
+        return projects[branch][dirs[0]];
+      }
+    }
+    return "";
   }
 
   assignBranches(report: TimeReport, projects: ProjectMap): void {
@@ -315,7 +363,11 @@ export class TimeReportProvider {
     // Set assignedBranch and project on each entry
     for (const entry of report.entries) {
       entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
-      entry.project = projects[entry.assignedBranch] || "";
+      entry.project = this.lookupProject(
+        projects,
+        entry.assignedBranch,
+        entry.directory,
+      );
     }
   }
 
@@ -326,14 +378,25 @@ export class TimeReportProvider {
     let earliestTimestamp = Infinity;
     let latestTimestamp = -Infinity;
 
-    const branchTimeSlots: { [branch: string]: Set<string> } = {};
+    // Group by composite key: branch + directory
+    const compositeTimeSlots: {
+      [compositeKey: string]: {
+        branch: string;
+        directory: string;
+        keys: Set<string>;
+      };
+    } = {};
 
     for (const entry of report.entries) {
-      const branch = entry.branch;
-      if (!branchTimeSlots[branch]) {
-        branchTimeSlots[branch] = new Set();
+      const compositeKey = `${entry.branch}\0${entry.directory}`;
+      if (!compositeTimeSlots[compositeKey]) {
+        compositeTimeSlots[compositeKey] = {
+          branch: entry.branch,
+          directory: entry.directory,
+          keys: new Set(),
+        };
       }
-      branchTimeSlots[branch].add(entry.key);
+      compositeTimeSlots[compositeKey].keys.add(entry.key);
 
       for (const detail of entry.fileDetails) {
         if (detail.timestamp < earliestTimestamp) {
@@ -354,15 +417,22 @@ export class TimeReportProvider {
         ? ""
         : new Date(latestTimestamp).toLocaleTimeString();
 
-    const overviewEntries: OverviewEntry[] = Object.keys(branchTimeSlots).map(
-      (branch) => ({
-        branch,
-        project: projects[branch] || "",
-        timeSlots: branchTimeSlots[branch].size,
-      }),
-    );
+    const overviewEntries: OverviewEntry[] = Object.values(
+      compositeTimeSlots,
+    ).map((item) => ({
+      branch: item.branch,
+      directory: item.directory,
+      project: this.lookupProject(projects, item.branch, item.directory),
+      timeSlots: item.keys.size,
+    }));
 
-    overviewEntries.sort((a, b) => a.branch.localeCompare(b.branch));
+    overviewEntries.sort((a, b) => {
+      const branchCmp = a.branch.localeCompare(b.branch);
+      if (branchCmp !== 0) {
+        return branchCmp;
+      }
+      return a.directory.localeCompare(b.directory);
+    });
 
     return {
       startOfDay,
@@ -415,9 +485,22 @@ export class TimeReportProvider {
       let projectsChanged = false;
       for (const entry of reportData.entries) {
         const mappingBranch = entry.assignedBranch || entry.branch;
-        if (entry.project && entry.project !== projects[mappingBranch]) {
-          projects[mappingBranch] = entry.project;
-          projectsChanged = true;
+        if (DEFAULT_BRANCHES.includes(mappingBranch)) {
+          continue;
+        }
+        if (entry.project) {
+          const currentProject = this.lookupProject(
+            projects,
+            mappingBranch,
+            entry.directory,
+          );
+          if (entry.project !== currentProject) {
+            if (!projects[mappingBranch]) {
+              projects[mappingBranch] = {};
+            }
+            projects[mappingBranch][entry.directory] = entry.project;
+            projectsChanged = true;
+          }
         }
       }
       if (projectsChanged) {
@@ -449,9 +532,13 @@ export class TimeReportProvider {
     });
 
     const allProjectNames = new Set<string>();
-    for (const key of Object.keys(projects)) {
-      if (projects[key]) {
-        allProjectNames.add(projects[key]);
+    for (const branch of Object.keys(projects)) {
+      if (typeof projects[branch] === "object" && projects[branch] !== null) {
+        for (const dir of Object.keys(projects[branch])) {
+          if (projects[branch][dir]) {
+            allProjectNames.add(projects[branch][dir]);
+          }
+        }
       }
     }
 
@@ -476,15 +563,18 @@ export class TimeReportProvider {
         const hours = Math.floor(timeMinutes / 60);
         const minutes = timeMinutes % 60;
         const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        const isDefault = DEFAULT_BRANCHES.includes(entry.branch);
+        const projectCell = isDefault
+          ? `<span>${this.escapeHtml(entry.project)}</span>`
+          : `<select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}">
+                        ${projectOptions.join("")}
+                    </select>
+                    <input type="text" class="overview-project-new" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" placeholder="or type new..." style="margin-left: 8px; width: 140px;" />`;
         return `
             <tr>
                 <td>${this.escapeHtml(entry.branch)}</td>
-                <td>
-                    <select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}">
-                        ${projectOptions.join("")}
-                    </select>
-                    <input type="text" class="overview-project-new" data-branch="${this.escapeHtml(entry.branch)}" placeholder="or type new..." style="margin-left: 8px; width: 140px;" />
-                </td>
+                <td>${this.escapeHtml(entry.directory)}</td>
+                <td>${projectCell}</td>
                 <td>${this.escapeHtml(timeStr)}</td>
             </tr>
         `;
@@ -630,12 +720,13 @@ export class TimeReportProvider {
                     <thead>
                         <tr>
                             <th>Branch</th>
+                            <th>Directory</th>
                             <th>Project</th>
                             <th>Time</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${overviewRowsHtml || '<tr><td colspan="3">No entries for this date</td></tr>'}
+                        ${overviewRowsHtml || '<tr><td colspan="4">No entries for this date</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -704,17 +795,19 @@ export class TimeReportProvider {
                 document.querySelectorAll('.overview-project-select').forEach(select => {
                     select.addEventListener('change', (e) => {
                         const branch = e.target.dataset.branch;
+                        const directory = e.target.dataset.directory;
                         const project = e.target.value;
-                        vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project });
+                        vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
                     });
                 });
 
                 document.querySelectorAll('.overview-project-new').forEach(input => {
                     input.addEventListener('change', (e) => {
                         const branch = e.target.dataset.branch;
+                        const directory = e.target.dataset.directory;
                         const project = e.target.value.trim();
                         if (project) {
-                            vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project });
+                            vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
                         }
                     });
                 });
@@ -727,8 +820,16 @@ export class TimeReportProvider {
 
                     // Apply project from overview mappings to entries
                     for (const entry of currentEntries) {
-                        if (currentProjects[entry.branch]) {
-                            entry.project = currentProjects[entry.branch];
+                        const branchMap = currentProjects[entry.branch];
+                        if (branchMap && typeof branchMap === 'object') {
+                            if (branchMap[entry.directory]) {
+                                entry.project = branchMap[entry.directory];
+                            } else {
+                                const dirs = Object.keys(branchMap);
+                                if (dirs.length > 0) {
+                                    entry.project = branchMap[dirs[0]];
+                                }
+                            }
                         }
                     }
                     
