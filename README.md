@@ -53,24 +53,6 @@ root/
 
 - `COFT: Show Time Report`: Open the time report view for the current day
 
-## Release Notes
-
-### 0.0.2
-
-- Auto-create root directory on first use
-- Path validation with fallback to default
-- Commands always available even if initialization fails
-- Runs as UI extension for dev container compatibility
-
-### 0.0.1
-
-Initial release:
-
-- Automatic file save tracking
-- Batch processing with configurable intervals
-- Time report view with navigation
-- Git-based storage
-
 ## License
 
 [MIT](LICENSE.md)

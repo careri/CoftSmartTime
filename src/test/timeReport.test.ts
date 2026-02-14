@@ -1,0 +1,196 @@
+import * as assert from "assert";
+import * as vscode from "vscode";
+import * as fs from "fs/promises";
+import * as path from "path";
+import * as os from "os";
+import { TimeReportProvider } from "../timeReport";
+import { GitManager } from "../git";
+import { CoftConfig } from "../config";
+
+suite("TimeReport Test Suite", () => {
+  let testRoot: string;
+  let testConfig: CoftConfig;
+  let outputChannel: vscode.OutputChannel;
+  let git: GitManager;
+  let provider: TimeReportProvider;
+
+  setup(async () => {
+    testRoot = path.join(os.tmpdir(), `coft-timereport-test-${Date.now()}`);
+    await fs.mkdir(testRoot, { recursive: true });
+
+    testConfig = {
+      root: testRoot,
+      queue: path.join(testRoot, "queue"),
+      queueBatch: path.join(testRoot, "queue_batch"),
+      queueBackup: path.join(testRoot, "queue_backup"),
+      data: path.join(testRoot, "data"),
+      intervalSeconds: 60,
+      viewGroupByMinutes: 15,
+    };
+
+    await fs.mkdir(testConfig.queue, { recursive: true });
+    await fs.mkdir(testConfig.queueBatch, { recursive: true });
+    await fs.mkdir(testConfig.queueBackup, { recursive: true });
+    await fs.mkdir(testConfig.data, { recursive: true });
+    await fs.mkdir(path.join(testConfig.data, "batches"), { recursive: true });
+    await fs.mkdir(path.join(testConfig.data, "reports"), { recursive: true });
+
+    outputChannel = vscode.window.createOutputChannel("TimeReport Test");
+    git = new GitManager(testConfig, outputChannel, "0.0.1");
+    await git.initialize();
+    provider = new TimeReportProvider(testConfig, git, outputChannel);
+  });
+
+  teardown(async () => {
+    try {
+      await fs.rm(testRoot, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  test("loadProjects returns empty object when no file exists", async () => {
+    const projects = await provider.loadProjects();
+    assert.deepStrictEqual(projects, {});
+  });
+
+  test("loadProjects returns saved mappings", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    const projectData = { main: "Project Alpha", develop: "Project Beta" };
+    await fs.writeFile(projectsPath, JSON.stringify(projectData), "utf-8");
+
+    const projects = await provider.loadProjects();
+    assert.strictEqual(projects["main"], "Project Alpha");
+    assert.strictEqual(projects["develop"], "Project Beta");
+  });
+
+  test("loadProjects returns empty object for invalid JSON", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    await fs.writeFile(projectsPath, "not valid json", "utf-8");
+
+    const projects = await provider.loadProjects();
+    assert.deepStrictEqual(projects, {});
+  });
+
+  test("assignBranches picks branch with most files per time slot", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: ["a.ts", "b.ts", "c.ts"],
+          fileDetails: [
+            { file: "a.ts", timestamp: 1000 },
+            { file: "b.ts", timestamp: 1001 },
+            { file: "c.ts", timestamp: 1002 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "develop",
+          directory: "/project",
+          files: ["x.ts"],
+          fileDetails: [{ file: "x.ts", timestamp: 1003 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    const projects = { main: "Alpha", develop: "Beta" };
+    provider.assignBranches(report, projects);
+
+    // Both entries in 09:00 should be assigned to "main" (3 files vs 1)
+    assert.strictEqual(report.entries[0].assignedBranch, "main");
+    assert.strictEqual(report.entries[1].assignedBranch, "main");
+    // Project should come from the assigned branch
+    assert.strictEqual(report.entries[0].project, "Alpha");
+    assert.strictEqual(report.entries[1].project, "Alpha");
+  });
+
+  test("assignBranches handles different time slots independently", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "develop",
+          directory: "/project",
+          files: ["b.ts", "c.ts"],
+          fileDetails: [
+            { file: "b.ts", timestamp: 1001 },
+            { file: "c.ts", timestamp: 1002 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "10:00",
+          branch: "main",
+          directory: "/project",
+          files: ["d.ts", "e.ts"],
+          fileDetails: [
+            { file: "d.ts", timestamp: 2000 },
+            { file: "e.ts", timestamp: 2001 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    const projects = { main: "Alpha", develop: "Beta" };
+    provider.assignBranches(report, projects);
+
+    // 09:00: develop wins (2 files vs 1)
+    assert.strictEqual(report.entries[0].assignedBranch, "develop");
+    assert.strictEqual(report.entries[1].assignedBranch, "develop");
+    assert.strictEqual(report.entries[0].project, "Beta");
+    assert.strictEqual(report.entries[1].project, "Beta");
+
+    // 10:00: main wins (only branch)
+    assert.strictEqual(report.entries[2].assignedBranch, "main");
+    assert.strictEqual(report.entries[2].project, "Alpha");
+  });
+
+  test("assignBranches sets empty project when no mapping exists", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-x",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, {});
+
+    assert.strictEqual(report.entries[0].assignedBranch, "feature-x");
+    assert.strictEqual(report.entries[0].project, "");
+  });
+});

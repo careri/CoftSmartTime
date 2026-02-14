@@ -10,13 +10,36 @@ interface TimeEntry {
   branch: string;
   directory: string;
   files: string[];
+  fileDetails: FileDetail[];
   comment: string;
   project: string;
+  assignedBranch: string;
+}
+
+interface FileDetail {
+  file: string;
+  timestamp: number;
 }
 
 interface TimeReport {
   date: string;
   entries: TimeEntry[];
+}
+
+interface ProjectMap {
+  [branch: string]: string;
+}
+
+interface OverviewEntry {
+  branch: string;
+  project: string;
+  timeSlots: number;
+}
+
+interface OverviewData {
+  startOfDay: string;
+  endOfDay: string;
+  entries: OverviewEntry[];
 }
 
 export class TimeReportProvider {
@@ -87,6 +110,9 @@ export class TimeReportProvider {
       case "save":
         await this.saveReport(message.data);
         break;
+      case "updateProjectMapping":
+        await this.updateProjectMapping(message.branch, message.project);
+        break;
     }
   }
 
@@ -96,12 +122,17 @@ export class TimeReportProvider {
     }
 
     const report = await this.loadTimeReport();
-    this.panel.webview.html = this.getHtmlContent(report);
+    const projects = await this.loadProjects();
+    this.assignBranches(report, projects);
+    const overview = this.computeOverview(report, projects);
+    this.panel.webview.html = this.getHtmlContent(report, overview, projects);
     // Send report data via messaging to avoid XSS from inline JSON
     await this.panel.webview.postMessage({
       command: "loadEntries",
       entries: report.entries,
       date: report.date,
+      overview: overview,
+      projects: projects,
     });
   }
 
@@ -185,6 +216,10 @@ export class TimeReportProvider {
                 if (existingEntry) {
                   if (!existingEntry.files.includes(fileEntry.File)) {
                     existingEntry.files.push(fileEntry.File);
+                    existingEntry.fileDetails.push({
+                      file: fileEntry.File,
+                      timestamp: fileEntry.Timestamp,
+                    });
                   }
                 } else {
                   report.entries.push({
@@ -192,8 +227,15 @@ export class TimeReportProvider {
                     branch,
                     directory,
                     files: [fileEntry.File],
+                    fileDetails: [
+                      {
+                        file: fileEntry.File,
+                        timestamp: fileEntry.Timestamp,
+                      },
+                    ],
                     comment: "",
                     project: "",
+                    assignedBranch: "",
                   });
                 }
               }
@@ -209,6 +251,124 @@ export class TimeReportProvider {
 
     report.entries.sort((a, b) => a.key.localeCompare(b.key));
     return report;
+  }
+
+  async loadProjects(): Promise<ProjectMap> {
+    const projectsPath = path.join(this.config.data, "projects.json");
+    try {
+      const content = await fs.readFile(projectsPath, "utf-8");
+      return JSON.parse(content);
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveProjects(projects: ProjectMap): Promise<void> {
+    const projectsPath = path.join(this.config.data, "projects.json");
+    await fs.writeFile(
+      projectsPath,
+      JSON.stringify(projects, null, 2),
+      "utf-8",
+    );
+    this.outputChannel.appendLine(`Projects saved: ${projectsPath}`);
+  }
+
+  private async updateProjectMapping(
+    branch: string,
+    project: string,
+  ): Promise<void> {
+    const projects = await this.loadProjects();
+    projects[branch] = project;
+    await this.saveProjects(projects);
+    // Refresh view to update timetable project columns
+    await this.updateView();
+  }
+
+  assignBranches(report: TimeReport, projects: ProjectMap): void {
+    // Count files per branch per time key
+    const keyBranchFiles: { [key: string]: { [branch: string]: number } } = {};
+
+    for (const entry of report.entries) {
+      if (!keyBranchFiles[entry.key]) {
+        keyBranchFiles[entry.key] = {};
+      }
+      if (!keyBranchFiles[entry.key][entry.branch]) {
+        keyBranchFiles[entry.key][entry.branch] = 0;
+      }
+      keyBranchFiles[entry.key][entry.branch] += entry.files.length;
+    }
+
+    // Determine dominant branch per time key
+    const keyAssignedBranch: { [key: string]: string } = {};
+    for (const key of Object.keys(keyBranchFiles)) {
+      let maxFiles = 0;
+      let assignedBranch = "";
+      for (const branch of Object.keys(keyBranchFiles[key])) {
+        if (keyBranchFiles[key][branch] > maxFiles) {
+          maxFiles = keyBranchFiles[key][branch];
+          assignedBranch = branch;
+        }
+      }
+      keyAssignedBranch[key] = assignedBranch;
+    }
+
+    // Set assignedBranch and project on each entry
+    for (const entry of report.entries) {
+      entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
+      entry.project = projects[entry.assignedBranch] || "";
+    }
+  }
+
+  private computeOverview(
+    report: TimeReport,
+    projects: ProjectMap,
+  ): OverviewData {
+    let earliestTimestamp = Infinity;
+    let latestTimestamp = -Infinity;
+
+    const branchTimeSlots: { [branch: string]: Set<string> } = {};
+
+    for (const entry of report.entries) {
+      const branch = entry.branch;
+      if (!branchTimeSlots[branch]) {
+        branchTimeSlots[branch] = new Set();
+      }
+      branchTimeSlots[branch].add(entry.key);
+
+      for (const detail of entry.fileDetails) {
+        if (detail.timestamp < earliestTimestamp) {
+          earliestTimestamp = detail.timestamp;
+        }
+        if (detail.timestamp > latestTimestamp) {
+          latestTimestamp = detail.timestamp;
+        }
+      }
+    }
+
+    const startOfDay =
+      earliestTimestamp === Infinity
+        ? ""
+        : new Date(earliestTimestamp).toLocaleTimeString();
+    const endOfDay =
+      latestTimestamp === -Infinity
+        ? ""
+        : new Date(latestTimestamp).toLocaleTimeString();
+
+    const overviewEntries: OverviewEntry[] = Object.keys(branchTimeSlots).map(
+      (branch) => ({
+        branch,
+        project: projects[branch] || "",
+        timeSlots: branchTimeSlots[branch].size,
+      }),
+    );
+
+    overviewEntries.sort((a, b) => a.branch.localeCompare(b.branch));
+
+    return {
+      startOfDay,
+      endOfDay,
+      entries: overviewEntries,
+    };
   }
 
   private getTimeKey(date: Date): string {
@@ -250,6 +410,20 @@ export class TimeReportProvider {
         "utf-8",
       );
 
+      // Save project mappings from report entries
+      const projects = await this.loadProjects();
+      let projectsChanged = false;
+      for (const entry of reportData.entries) {
+        const mappingBranch = entry.assignedBranch || entry.branch;
+        if (entry.project && entry.project !== projects[mappingBranch]) {
+          projects[mappingBranch] = entry.project;
+          projectsChanged = true;
+        }
+      }
+      if (projectsChanged) {
+        await this.saveProjects(projects);
+      }
+
       await this.git.commit("report");
 
       vscode.window.showInformationMessage("Time report saved successfully");
@@ -262,7 +436,11 @@ export class TimeReportProvider {
     }
   }
 
-  private getHtmlContent(report: TimeReport): string {
+  private getHtmlContent(
+    report: TimeReport,
+    overview: OverviewData,
+    projects: ProjectMap,
+  ): string {
     const dateStr = this.currentDate.toLocaleDateString(undefined, {
       weekday: "long",
       year: "numeric",
@@ -270,15 +448,59 @@ export class TimeReportProvider {
       day: "numeric",
     });
 
+    const allProjectNames = new Set<string>();
+    for (const key of Object.keys(projects)) {
+      if (projects[key]) {
+        allProjectNames.add(projects[key]);
+      }
+    }
+
+    const overviewRowsHtml = overview.entries
+      .map((entry) => {
+        const projectOptions = [
+          `<option value="">${this.escapeHtml("")}</option>`,
+        ];
+        const selectedProject = entry.project;
+        for (const projectName of allProjectNames) {
+          const selected = projectName === selectedProject ? " selected" : "";
+          projectOptions.push(
+            `<option value="${this.escapeHtml(projectName)}"${selected}>${this.escapeHtml(projectName)}</option>`,
+          );
+        }
+        if (selectedProject && !allProjectNames.has(selectedProject)) {
+          projectOptions.push(
+            `<option value="${this.escapeHtml(selectedProject)}" selected>${this.escapeHtml(selectedProject)}</option>`,
+          );
+        }
+        const timeMinutes = entry.timeSlots * this.config.viewGroupByMinutes;
+        const hours = Math.floor(timeMinutes / 60);
+        const minutes = timeMinutes % 60;
+        const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        return `
+            <tr>
+                <td>${this.escapeHtml(entry.branch)}</td>
+                <td>
+                    <select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}">
+                        ${projectOptions.join("")}
+                    </select>
+                    <input type="text" class="overview-project-new" data-branch="${this.escapeHtml(entry.branch)}" placeholder="or type new..." style="margin-left: 8px; width: 140px;" />
+                </td>
+                <td>${this.escapeHtml(timeStr)}</td>
+            </tr>
+        `;
+      })
+      .join("");
+
     const entriesHtml = report.entries
       .map(
         (entry, index) => `
-            <tr>
+            <tr class="entry-row" data-index="${index}">
                 <td>${this.escapeHtml(entry.key)}</td>
                 <td>${this.escapeHtml(entry.directory)}</td>
                 <td>${this.escapeHtml(entry.branch)}</td>
                 <td><input type="text" class="comment-field" data-index="${index}" value="${this.escapeHtml(entry.comment)}" /></td>
-                <td><input type="text" class="project-field" data-index="${index}" value="${this.escapeHtml(entry.project)}" /></td>
+                <td class="project-cell">${this.escapeHtml(entry.project)}</td>
+                <td class="assigned-branch-cell">${this.escapeHtml(entry.assignedBranch)}</td>
             </tr>
         `,
       )
@@ -343,6 +565,49 @@ export class TimeReportProvider {
                     margin-top: 20px;
                     background-color: var(--vscode-button-background);
                 }
+                .entry-row {
+                    cursor: pointer;
+                }
+                .entry-row:hover {
+                    background-color: var(--vscode-list-hoverBackground);
+                }
+                .entry-row.selected {
+                    background-color: var(--vscode-list-activeSelectionBackground);
+                    color: var(--vscode-list-activeSelectionForeground);
+                }
+                #detailSection {
+                    margin-top: 30px;
+                }
+                #detailSection h3 {
+                    margin-bottom: 10px;
+                }
+                select {
+                    background-color: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border: 1px solid var(--vscode-input-border);
+                    padding: 4px 8px;
+                }
+                .overview-section {
+                    margin-bottom: 30px;
+                    padding: 16px;
+                    border: 1px solid var(--vscode-panel-border);
+                    border-radius: 4px;
+                }
+                .overview-section h2 {
+                    margin-top: 0;
+                    margin-bottom: 12px;
+                }
+                .day-range {
+                    margin-bottom: 12px;
+                    font-size: 1.1em;
+                }
+                .day-range span {
+                    margin-right: 24px;
+                }
+                .section-title {
+                    margin-top: 30px;
+                    margin-bottom: 4px;
+                }
             </style>
         </head>
         <body>
@@ -354,7 +619,28 @@ export class TimeReportProvider {
                     <button id="nextDay">Next &#8594;</button>
                 </div>
             </div>
-            
+
+            <div class="overview-section">
+                <h2>Overview</h2>
+                <div class="day-range">
+                    <span><strong>Start:</strong> ${this.escapeHtml(overview.startOfDay || "—")}</span>
+                    <span><strong>End:</strong> ${this.escapeHtml(overview.endOfDay || "—")}</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Branch</th>
+                            <th>Project</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${overviewRowsHtml || '<tr><td colspan="3">No entries for this date</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="section-title">Timetable</h2>
             <table>
                 <thead>
                     <tr>
@@ -363,25 +649,42 @@ export class TimeReportProvider {
                         <th>Branch</th>
                         <th>Comment</th>
                         <th>Project</th>
+                        <th>Assigned</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${entriesHtml || '<tr><td colspan="5">No entries for this date</td></tr>'}
+                    ${entriesHtml || '<tr><td colspan="6">No entries for this date</td></tr>'}
                 </tbody>
             </table>
             
             <button class="save-button" id="saveBtn">Save Report</button>
             
+            <div id="detailSection" style="display:none;">
+                <h3 id="detailTitle">Batch Items</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailBody">
+                    </tbody>
+                </table>
+            </div>
+            
             <script>
                 const vscode = acquireVsCodeApi();
                 let currentEntries = [];
                 let currentDate = '';
+                let currentProjects = {};
                 
                 window.addEventListener('message', event => {
                     const message = event.data;
                     if (message.command === 'loadEntries') {
                         currentEntries = message.entries;
                         currentDate = message.date;
+                        currentProjects = message.projects || {};
                     }
                 });
                 
@@ -396,17 +699,38 @@ export class TimeReportProvider {
                 document.getElementById('today').addEventListener('click', () => {
                     vscode.postMessage({ command: 'today' });
                 });
+
+                // Overview project select/input handlers
+                document.querySelectorAll('.overview-project-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const branch = e.target.dataset.branch;
+                        const project = e.target.value;
+                        vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project });
+                    });
+                });
+
+                document.querySelectorAll('.overview-project-new').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const branch = e.target.dataset.branch;
+                        const project = e.target.value.trim();
+                        if (project) {
+                            vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project });
+                        }
+                    });
+                });
                 
                 document.getElementById('saveBtn').addEventListener('click', () => {
                     document.querySelectorAll('.comment-field').forEach(input => {
                         const index = parseInt(input.dataset.index);
                         currentEntries[index].comment = input.value;
                     });
-                    
-                    document.querySelectorAll('.project-field').forEach(input => {
-                        const index = parseInt(input.dataset.index);
-                        currentEntries[index].project = input.value;
-                    });
+
+                    // Apply project from overview mappings to entries
+                    for (const entry of currentEntries) {
+                        if (currentProjects[entry.branch]) {
+                            entry.project = currentProjects[entry.branch];
+                        }
+                    }
                     
                     vscode.postMessage({
                         command: 'save',
@@ -416,6 +740,50 @@ export class TimeReportProvider {
                         }
                     });
                 });
+
+                document.querySelectorAll('.entry-row').forEach(row => {
+                    row.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'INPUT') {
+                            return;
+                        }
+                        const index = parseInt(row.dataset.index);
+                        document.querySelectorAll('.entry-row').forEach(r => r.classList.remove('selected'));
+                        row.classList.add('selected');
+                        showDetail(index);
+                    });
+                });
+
+                function showDetail(index) {
+                    const entry = currentEntries[index];
+                    if (!entry) {
+                        return;
+                    }
+                    const detailSection = document.getElementById('detailSection');
+                    const detailBody = document.getElementById('detailBody');
+                    const detailTitle = document.getElementById('detailTitle');
+                    
+                    detailTitle.textContent = 'Batch Items: ' + entry.key + ' - ' + entry.directory + ' (' + entry.branch + ')';
+                    
+                    const details = entry.fileDetails || [];
+                    details.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    detailBody.innerHTML = details.map(d => {
+                        const ts = new Date(d.timestamp).toLocaleTimeString();
+                        return '<tr><td>' + escapeHtml(d.file) + '</td><td>' + escapeHtml(ts) + '</td></tr>';
+                    }).join('');
+                    
+                    if (details.length === 0) {
+                        detailBody.innerHTML = '<tr><td colspan="2">No file details available</td></tr>';
+                    }
+                    
+                    detailSection.style.display = 'block';
+                }
+
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
             </script>
         </body>
         </html>`;

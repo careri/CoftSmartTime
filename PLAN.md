@@ -16,7 +16,9 @@ coft.smarttime should be the id of the extension.
 - ✅ OS-agnostic file locking mechanism
 - ✅ Git integration for version control
 - ✅ Time report view with webview UI
-- ✅ Unit tests for all modules (config, storage, batch, extension, git, lock)
+- ✅ Project mapping (branch to project, projects.json)
+- ✅ Overview section with start/end of day, branch/project/time summary
+- ✅ Unit tests for all modules (config, storage, batch, extension, git, lock, timeReport)
 - ✅ Devcontainer with all dependencies
 - ✅ Git bash aliases in devcontainer
 - ✅ Auto-create COFT_ROOT directory on first use
@@ -41,6 +43,7 @@ coft.smarttime should be the id of the extension.
 - `src/test/extension.test.ts` - Extension tests
 - `src/test/git.test.ts` - Git tests
 - `src/test/lock.test.ts` - Lock tests
+- `src/test/timeReport.test.ts` - Time report tests
 
 ## Tools
 
@@ -108,6 +111,16 @@ Timereports are saved by day in COFT_DATA/reports/year/month/day
 }
 ```
 
+### Project
+
+✅ A mapping between branch and project, COFT_DATA/projects.json
+
+```json
+{
+    "<ITEM_BRANCH>": "<PROJECT>",
+}
+
+
 ## Logic
 
 ✅ **Implemented** - All logic components are complete and tested
@@ -174,16 +187,44 @@ Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15
 
 #### Layout
 
+##### Controls
+
 ✅ Buttons to go back and forward in dates. Show today by default.
+✅ Save button. Saves timereport to git.
+
+##### Date Time
+
 ✅ Dates are shown in user locale.
-✅ Show a view of the files that were changed today.
+
+##### Parts
+
+###### Overview
+
+✅ At the top show a project view. Load projects.json
+✅ Collect the used branches from the batch and map to existing values in projects.
+
+✅ Show start of day and end of day. First and last changed file.
+
+✅ Show a table:
+- ✅ branch
+- ✅ project (list control with value selected if available)
+- ✅ time (sum of TIME_SLOT)
+
+###### Timetable
+
+✅ Show a view of the files that were changed today. each line is a TIME_SLOT
+✅ Assign the TIME_SLOT to the branch with most changed files
+✅ Show the info for the assigned branch on the row. including readonly project (should update if changed in the overview)
 
 Group them by:
 
 - ✅ COFT_VIEW_GROUP_BY_MINUTES <readonly>
 - ✅ Composite key of ITEM_BRANCH and ITEM_DIR <readonly>
-- ✅ Free text fields for Comment and Project
-- ✅ Save button. Saves timereport to git.
+
+
+##### Batch Items
+
+✅ If a row is selected show the items within the batch in another grid at the bottom.
 
 ## Next Steps
 
@@ -191,3 +232,4 @@ Group them by:
 - Consider adding filtering/search in time report view
 - Add export functionality for reports
 - Consider adding statistics/summary views
+```

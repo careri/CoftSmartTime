@@ -2,10 +2,10 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.4 ",
+  "version": "0.0.6",
   "repository": {
     "type": "git",
-    "url": "https://tmp.coft.smarttime.com"
+    "url": "https://github.com/careri/CoftSmartTime.git"
   },
   "engines": {
     "vscode": "^1.109.0"
