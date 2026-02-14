@@ -173,6 +173,7 @@ If COFT_DATA isn't a git repo, do git init. Set user name and email. Derive from
 Configure COFT_ROOT where the file entries will be saved, default should be <home>/.coft.smarttime
 Configure COFT_INTERVAL_SECONDS, inform the user of valid range 60 to 300
 Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60
+Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the branch can be injected. E.g. https://ctek-jira.atlassian.net/browse/{branch}
 
 ## VS Code Commands
 
@@ -207,6 +208,8 @@ Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15
 ✅ Collect TIME_SLOTS by COMPOSITE_KEY and map to existing values in projects. If not found check if branch is bound in another directory.
 
 ✅ Show start of day and end of day. First and last changed file.
+[ ] If COFT_BRANCH_TASK_URL is configured convert the branch column into a link using that pattern
+[ ] You should be able to assign a project for default branches (main/master etc). But the mapping between default branch and project shouldn't be saved to projects.
 
 ✅ Show a table:
 - ✅ branch

@@ -10,6 +10,7 @@ export interface CoftConfig {
   data: string;
   intervalSeconds: number;
   viewGroupByMinutes: number;
+  branchTaskUrl: string;
 }
 
 export class ConfigManager {
@@ -59,6 +60,9 @@ export class ConfigManager {
       viewGroupByMinutes = 15;
     }
 
+    // Get branch task URL
+    const branchTaskUrl = config.get<string>("branchTaskUrl", "");
+
     return {
       root,
       queue: path.join(root, "queue"),
@@ -67,6 +71,7 @@ export class ConfigManager {
       data: path.join(root, "data"),
       intervalSeconds,
       viewGroupByMinutes,
+      branchTaskUrl,
     };
   }
 

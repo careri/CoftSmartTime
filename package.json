@@ -60,6 +60,11 @@
             60
           ],
           "description": "Time grouping in minutes for time report view (must divide evenly into 60)"
+        },
+        "coft.smarttime.branchTaskUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional URL pattern for linking branches to tasks. Use {branch} as placeholder. E.g. https://ctek-jira.atlassian.net/browse/{branch}"
         }
       }
     }

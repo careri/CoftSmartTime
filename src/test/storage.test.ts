@@ -25,6 +25,7 @@ suite("Storage Test Suite", () => {
       data: path.join(testRoot, "data"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
+      branchTaskUrl: "",
     };
 
     outputChannel = vscode.window.createOutputChannel("Test");
@@ -71,6 +72,7 @@ suite("Storage Test Suite", () => {
       data: path.join(nonExistentRoot, "data"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
+      branchTaskUrl: "",
     };
 
     const storage = new StorageManager(autoConfig, outputChannel);

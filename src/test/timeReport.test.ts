@@ -26,6 +26,7 @@ suite("TimeReport Test Suite", () => {
       data: path.join(testRoot, "data"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
+      branchTaskUrl: "",
     };
 
     await fs.mkdir(testConfig.queue, { recursive: true });
@@ -250,5 +251,45 @@ suite("TimeReport Test Suite", () => {
 
     assert.strictEqual(report.entries[0].assignedBranch, "feature-x");
     assert.strictEqual(report.entries[0].project, "");
+  });
+
+  test("lookupProject returns in-memory project for default branches", () => {
+    const projects = {
+      main: { "/project": "Persisted" },
+    };
+
+    // Simulate setting a default branch project via the in-memory map
+    const defaultBranchProjects = (provider as any).defaultBranchProjects;
+    defaultBranchProjects["main\0/project"] = "InMemoryProject";
+
+    const result = provider.lookupProject(projects, "main", "/project");
+    assert.strictEqual(result, "InMemoryProject");
+
+    // Clean up
+    delete defaultBranchProjects["main\0/project"];
+  });
+
+  test("lookupProject falls back to persisted for default branches without in-memory mapping", () => {
+    const projects = {
+      main: { "/project": "Persisted" },
+    };
+
+    const result = provider.lookupProject(projects, "main", "/project");
+    assert.strictEqual(result, "Persisted");
+  });
+
+  test("lookupProject does not use in-memory map for non-default branches", () => {
+    const projects = {
+      feature: { "/project": "FromFile" },
+    };
+
+    const defaultBranchProjects = (provider as any).defaultBranchProjects;
+    defaultBranchProjects["feature\0/project"] = "InMemory";
+
+    const result = provider.lookupProject(projects, "feature", "/project");
+    assert.strictEqual(result, "FromFile");
+
+    // Clean up
+    delete defaultBranchProjects["feature\0/project"];
   });
 });

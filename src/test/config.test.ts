@@ -107,4 +107,12 @@ suite("Config Test Suite", () => {
     assert.strictEqual(isValidPath("/home/user/.coft.smarttime"), true);
     assert.strictEqual(isValidPath("/tmp/test"), true);
   });
+
+  test("ConfigManager should return branchTaskUrl from config", () => {
+    const outputChannel = vscode.window.createOutputChannel("Test");
+    const configManager = new ConfigManager(outputChannel);
+    const config = configManager.getConfig();
+
+    assert.strictEqual(typeof config.branchTaskUrl, "string");
+  });
 });

@@ -23,6 +23,7 @@ suite("Git Test Suite", () => {
       data: path.join(testRoot, "data"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
+      branchTaskUrl: "",
     };
 
     await fs.mkdir(testConfig.data, { recursive: true });

@@ -54,6 +54,7 @@ export class TimeReportProvider {
   private outputChannel: vscode.OutputChannel;
   private currentDate: Date;
   private panel: vscode.WebviewPanel | null = null;
+  private defaultBranchProjects: { [compositeKey: string]: string } = {};
 
   constructor(
     config: CoftConfig,
@@ -301,6 +302,9 @@ export class TimeReportProvider {
     directory: string,
   ): Promise<void> {
     if (DEFAULT_BRANCHES.includes(branch)) {
+      const compositeKey = `${branch}\0${directory}`;
+      this.defaultBranchProjects[compositeKey] = project;
+      await this.updateView();
       return;
     }
     const projects = await this.loadProjects();
@@ -318,6 +322,13 @@ export class TimeReportProvider {
     branch: string,
     directory: string,
   ): string {
+    // 0. Check in-memory default branch projects
+    if (DEFAULT_BRANCHES.includes(branch)) {
+      const compositeKey = `${branch}\0${directory}`;
+      if (this.defaultBranchProjects[compositeKey] !== undefined) {
+        return this.defaultBranchProjects[compositeKey];
+      }
+    }
     // 1. Exact match: branch + directory
     if (projects[branch] && projects[branch][directory]) {
       return projects[branch][directory];
@@ -563,16 +574,16 @@ export class TimeReportProvider {
         const hours = Math.floor(timeMinutes / 60);
         const minutes = timeMinutes % 60;
         const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-        const isDefault = DEFAULT_BRANCHES.includes(entry.branch);
-        const projectCell = isDefault
-          ? `<span>${this.escapeHtml(entry.project)}</span>`
-          : `<select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}">
+        const branchCell = this.config.branchTaskUrl
+          ? `<a href="${this.escapeHtml(this.config.branchTaskUrl.replace("{branch}", entry.branch))}" title="Open task">${this.escapeHtml(entry.branch)}</a>`
+          : this.escapeHtml(entry.branch);
+        const projectCell = `<select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}">
                         ${projectOptions.join("")}
                     </select>
                     <input type="text" class="overview-project-new" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" placeholder="or type new..." style="margin-left: 8px; width: 140px;" />`;
         return `
             <tr>
-                <td>${this.escapeHtml(entry.branch)}</td>
+                <td>${branchCell}</td>
                 <td>${this.escapeHtml(entry.directory)}</td>
                 <td>${projectCell}</td>
                 <td>${this.escapeHtml(timeStr)}</td>
