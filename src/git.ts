@@ -1,5 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import * as fs from "fs/promises";
+import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
 
@@ -31,6 +33,9 @@ export class GitManager {
         await this.execGit("init");
         await this.execGit('config user.name "COFT SmartTime"');
         await this.execGit('config user.email "smarttime@coft.local"');
+        // Create .gitignore to exclude lock file
+        const gitignorePath = path.join(this.config.data, ".gitignore");
+        await fs.writeFile(gitignorePath, ".lock\n", "utf-8");
         this.outputChannel.appendLine("Git repository initialized");
       }
     } catch (error) {
