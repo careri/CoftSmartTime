@@ -645,11 +645,14 @@ export class TimeReportProvider {
                     width: 100%;
                     border-collapse: collapse;
                     margin-top: 20px;
+                    table-layout: fixed;
                 }
                 th, td {
                     text-align: left;
                     padding: 8px;
                     border-bottom: 1px solid var(--vscode-panel-border);
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 th {
                     background-color: var(--vscode-editor-lineHighlightBackground);
