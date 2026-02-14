@@ -554,22 +554,15 @@ export class TimeReportProvider {
     }
 
     const overviewRowsHtml = overview.entries
-      .map((entry) => {
-        const projectOptions = [
-          `<option value="">${this.escapeHtml("")}</option>`,
-        ];
+      .map((entry, idx) => {
+        const datalistOptions: string[] = [];
         const selectedProject = entry.project;
         for (const projectName of allProjectNames) {
-          const selected = projectName === selectedProject ? " selected" : "";
-          projectOptions.push(
-            `<option value="${this.escapeHtml(projectName)}"${selected}>${this.escapeHtml(projectName)}</option>`,
+          datalistOptions.push(
+            `<option value="${this.escapeHtml(projectName)}"></option>`,
           );
         }
-        if (selectedProject && !allProjectNames.has(selectedProject)) {
-          projectOptions.push(
-            `<option value="${this.escapeHtml(selectedProject)}" selected>${this.escapeHtml(selectedProject)}</option>`,
-          );
-        }
+        const datalistId = `project-list-${idx}`;
         const timeMinutes = entry.timeSlots * this.config.viewGroupByMinutes;
         const hours = Math.floor(timeMinutes / 60);
         const minutes = timeMinutes % 60;
@@ -577,10 +570,8 @@ export class TimeReportProvider {
         const branchCell = this.config.branchTaskUrl
           ? `<a href="${this.escapeHtml(this.config.branchTaskUrl.replace("{branch}", entry.branch))}" title="Open task">${this.escapeHtml(entry.branch)}</a>`
           : this.escapeHtml(entry.branch);
-        const projectCell = `<select class="overview-project-select" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}">
-                        ${projectOptions.join("")}
-                    </select>
-                    <input type="text" class="overview-project-new" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" placeholder="or type new..." style="margin-left: 8px; width: 140px;" />`;
+        const projectCell = `<input type="text" list="${datalistId}" class="overview-project-input" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" value="${this.escapeHtml(selectedProject)}" placeholder="Select or type project..." />
+                    <datalist id="${datalistId}">${datalistOptions.join("")}</datalist>`;
         return `
             <tr>
                 <td>${branchCell}</td>
@@ -645,14 +636,18 @@ export class TimeReportProvider {
                     width: 100%;
                     border-collapse: collapse;
                     margin-top: 20px;
-                    table-layout: fixed;
                 }
                 th, td {
                     text-align: left;
                     padding: 8px;
                     border-bottom: 1px solid var(--vscode-panel-border);
+                    white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
+                }
+                td:nth-child(2) {
+                    white-space: normal;
+                    word-break: break-all;
                 }
                 th {
                     background-color: var(--vscode-editor-lineHighlightBackground);
@@ -805,24 +800,13 @@ export class TimeReportProvider {
                     vscode.postMessage({ command: 'today' });
                 });
 
-                // Overview project select/input handlers
-                document.querySelectorAll('.overview-project-select').forEach(select => {
-                    select.addEventListener('change', (e) => {
-                        const branch = e.target.dataset.branch;
-                        const directory = e.target.dataset.directory;
-                        const project = e.target.value;
-                        vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
-                    });
-                });
-
-                document.querySelectorAll('.overview-project-new').forEach(input => {
+                // Overview project input handlers
+                document.querySelectorAll('.overview-project-input').forEach(input => {
                     input.addEventListener('change', (e) => {
                         const branch = e.target.dataset.branch;
                         const directory = e.target.dataset.directory;
                         const project = e.target.value.trim();
-                        if (project) {
-                            vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
-                        }
+                        vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
                     });
                 });
                 
