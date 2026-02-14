@@ -1,0 +1,86 @@
+{
+  "name": "coft-smarttime",
+  "displayName": "coft.smarttime",
+  "description": "Time tracker using changed files",
+  "version": "0.0.4 ",
+  "repository": {
+    "type": "git",
+    "url": "https://tmp.coft.smarttime.com"
+  },
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "coft-smarttime.showTimeReport",
+        "title": "COFT: Show Time Report"
+      }
+    ],
+    "configuration": {
+      "title": "COFT Smart Time",
+      "properties": {
+        "coft.smarttime.root": {
+          "type": "string",
+          "default": "",
+          "description": "Root directory for COFT data storage. Leave empty to use default (~/.coft.smarttime)"
+        },
+        "coft.smarttime.intervalSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 60,
+          "maximum": 300,
+          "description": "Interval in seconds for batch processing (60-300)"
+        },
+        "coft.smarttime.viewGroupByMinutes": {
+          "type": "number",
+          "default": 15,
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            10,
+            12,
+            15,
+            20,
+            30,
+            60
+          ],
+          "description": "Time grouping in minutes for time report view (must divide evenly into 60)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "xvfb-run -a npm run test:run",
+    "test:run": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.109.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.54.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}

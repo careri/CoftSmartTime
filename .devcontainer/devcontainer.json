@@ -1,0 +1,25 @@
+{
+  "name": "Smart Time VS Code Extension",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 libatspi2.0-0 libgtk-3-0 libgconf-2-4 libnss3-dev libxss1 xvfb && npm install -g yo generator-code @vscode/vsce && echo 'source /workspaces/smart-time/.devcontainer/.bashrc_aliases' >> ~/.bashrc",
+  "postStartCommand": "Xvfb :99 -screen 0 1024x768x24 &>/dev/null &",
+  "remoteEnv": {
+    "DISPLAY": ":99"
+  },
+  "remoteUser": "node"
+}

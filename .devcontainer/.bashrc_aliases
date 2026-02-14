@@ -1,0 +1,70 @@
+# Git aliases
+alias gs='git status'
+alias gresetdir='git checkout --no-overlay'
+alias gita='git add'
+alias gap='git add -p'
+alias gau='git add -u'
+alias gai='git add -i'
+alias gitc='git commit'
+alias gitcm='git commit -m'
+alias gitam='git commit --amend'
+alias gfet='git fetch'
+alias gpul='git pull'
+alias gpus='git push'
+alias greb='git rebase'
+alias grebi='git rebase -i'
+alias grebc='git rebase --continue'
+alias greba='git rebase --abort'
+alias gmer='git merge'
+alias gmerc='git merge --continue'
+alias gmera='git merge --abort'
+
+# Git functions
+gitmovebranch() {
+    git branch -f "$1" "origin/$1"
+}
+
+glog() {
+    git log --branches --remotes --tags --graph --oneline --decorate --pretty="format: %C(yellow)%h %Cred%ad %C(cyan)%an %C(yellow)%d %Cgreen%s" --date=format:"%y%m%d %H%M" "$@"
+}
+
+gitswitchupdate() {
+    git fetch
+    git branch -f "$1" "origin/$1"
+    git switch "$1"
+}
+
+gittrack() {
+    local branch=$(git rev-parse --abbrev-ref HEAD)
+    git push -u origin "$branch"
+}
+
+gdiff() {
+    local file="$1"
+    local commitish="$2"
+    if [ -z "$file" ] || [ -z "$commitish" ]; then
+        echo "Usage: gdiff <file> <commitish>"
+        return 1
+    fi
+    local git_hash=$(git rev-parse "$commitish")
+    local file_name=$(basename "$file")
+    local tmp_dir=$(mktemp -d "/tmp/gdiff.$git_hash.XXXXXX")
+    local tmp_file="$tmp_dir/$file_name"
+    git show "$git_hash:$file" > "$tmp_file"
+    code --diff "$file" "$tmp_file"
+}
+
+gropen() {
+    local file="$1"
+    local commitish="$2"
+    if [ -z "$file" ] || [ -z "$commitish" ]; then
+        echo "Usage: gropen <file> <commitish>"
+        return 1
+    fi
+    local git_hash=$(git rev-parse "$commitish")
+    local file_name=$(basename "$file")
+    local tmp_dir=$(mktemp -d "/tmp/gdiff.$git_hash.XXXXXX")
+    local tmp_file="$tmp_dir/$file_name"
+    git show "$git_hash:$file" > "$tmp_file"
+    code "$tmp_file"
+}
