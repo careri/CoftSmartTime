@@ -292,4 +292,45 @@ suite("TimeReport Test Suite", () => {
     // Clean up
     delete defaultBranchProjects["feature\0/project"];
   });
+
+  test("loadProjects includes _unbound project names", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    const projectData = {
+      feature: { "/workspace": "Alpha" },
+      _unbound: ["Beta", "Gamma"],
+    };
+    await fs.writeFile(projectsPath, JSON.stringify(projectData), "utf-8");
+
+    const projects = await provider.loadProjects();
+    assert.strictEqual(projects["feature"]["/workspace"], "Alpha");
+    assert.deepStrictEqual((projects as any)["_unbound"], ["Beta", "Gamma"]);
+  });
+
+  test("loadProjects ignores invalid _unbound format", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    const projectData = {
+      feature: { "/workspace": "Alpha" },
+      _unbound: "not-an-array",
+    };
+    await fs.writeFile(projectsPath, JSON.stringify(projectData), "utf-8");
+
+    const projects = await provider.loadProjects();
+    assert.strictEqual(projects["feature"]["/workspace"], "Alpha");
+    assert.strictEqual((projects as any)["_unbound"], undefined);
+  });
+
+  test("no-branch is treated as default branch", () => {
+    const projects = {
+      "no-branch": { "/project": "Persisted" },
+    };
+
+    const defaultBranchProjects = (provider as any).defaultBranchProjects;
+    defaultBranchProjects["no-branch\0/project"] = "InMemory";
+
+    const result = provider.lookupProject(projects, "no-branch", "/project");
+    assert.strictEqual(result, "InMemory");
+
+    // Clean up
+    delete defaultBranchProjects["no-branch\0/project"];
+  });
 });

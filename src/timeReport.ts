@@ -32,7 +32,7 @@ interface ProjectMap {
   };
 }
 
-const DEFAULT_BRANCHES = ["main", "master"];
+const DEFAULT_BRANCHES = ["main", "master", "no-branch"];
 
 interface OverviewEntry {
   branch: string;
@@ -268,11 +268,20 @@ export class TimeReportProvider {
     try {
       const content = await fs.readFile(projectsPath, "utf-8");
       const parsed = JSON.parse(content);
-      // Validate new format: { branch: { directory: project } }
+      // Validate new format: { branch: { directory: project }, _unbound: [...] }
       if (typeof parsed !== "object" || parsed === null) {
         return {};
       }
       for (const key of Object.keys(parsed)) {
+        if (key === "_unbound") {
+          if (!Array.isArray(parsed[key])) {
+            this.outputChannel.appendLine(
+              "projects.json _unbound is not an array, ignoring",
+            );
+            delete parsed[key];
+          }
+          continue;
+        }
         if (typeof parsed[key] !== "object" || parsed[key] === null) {
           this.outputChannel.appendLine(
             "projects.json has unexpected format, treating as empty",
@@ -304,6 +313,16 @@ export class TimeReportProvider {
     if (DEFAULT_BRANCHES.includes(branch)) {
       const compositeKey = `${branch}\0${directory}`;
       this.defaultBranchProjects[compositeKey] = project;
+      // Save project name as unbound for autocomplete
+      if (project) {
+        const projects = await this.loadProjects();
+        const unbound: string[] = (projects as any)["_unbound"] || [];
+        if (!unbound.includes(project)) {
+          unbound.push(project);
+          (projects as any)["_unbound"] = unbound;
+          await this.saveProjects(projects);
+        }
+      }
       await this.updateView();
       return;
     }
@@ -544,6 +563,17 @@ export class TimeReportProvider {
 
     const allProjectNames = new Set<string>();
     for (const branch of Object.keys(projects)) {
+      if (branch === "_unbound") {
+        const unbound = (projects as any)["_unbound"];
+        if (Array.isArray(unbound)) {
+          for (const name of unbound) {
+            if (name) {
+              allProjectNames.add(name);
+            }
+          }
+        }
+        continue;
+      }
       if (typeof projects[branch] === "object" && projects[branch] !== null) {
         for (const dir of Object.keys(projects[branch])) {
           if (projects[branch][dir]) {
@@ -553,16 +583,11 @@ export class TimeReportProvider {
       }
     }
 
+    const projectNamesJson = JSON.stringify(Array.from(allProjectNames));
+
     const overviewRowsHtml = overview.entries
       .map((entry, idx) => {
-        const datalistOptions: string[] = [];
         const selectedProject = entry.project;
-        for (const projectName of allProjectNames) {
-          datalistOptions.push(
-            `<option value="${this.escapeHtml(projectName)}"></option>`,
-          );
-        }
-        const datalistId = `project-list-${idx}`;
         const timeMinutes = entry.timeSlots * this.config.viewGroupByMinutes;
         const hours = Math.floor(timeMinutes / 60);
         const minutes = timeMinutes % 60;
@@ -570,8 +595,10 @@ export class TimeReportProvider {
         const branchCell = this.config.branchTaskUrl
           ? `<a href="${this.escapeHtml(this.config.branchTaskUrl.replace("{branch}", entry.branch))}" title="Open task">${this.escapeHtml(entry.branch)}</a>`
           : this.escapeHtml(entry.branch);
-        const projectCell = `<input type="text" list="${datalistId}" class="overview-project-input" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" value="${this.escapeHtml(selectedProject)}" placeholder="Select or type project..." />
-                    <datalist id="${datalistId}">${datalistOptions.join("")}</datalist>`;
+        const projectCell = `<div class="combobox-wrapper">
+                    <input type="text" class="overview-project-input" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" value="${this.escapeHtml(selectedProject)}" placeholder="Select or type project..." autocomplete="off" />
+                    <div class="combobox-dropdown"></div>
+                </div>`;
         return `
             <tr>
                 <td>${branchCell}</td>
@@ -707,6 +734,32 @@ export class TimeReportProvider {
                     margin-top: 30px;
                     margin-bottom: 4px;
                 }
+                .combobox-wrapper {
+                    position: relative;
+                }
+                .combobox-dropdown {
+                    display: none;
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    right: 0;
+                    z-index: 100;
+                    background-color: var(--vscode-input-background);
+                    border: 1px solid var(--vscode-input-border);
+                    max-height: 150px;
+                    overflow-y: auto;
+                }
+                .combobox-dropdown.open {
+                    display: block;
+                }
+                .combobox-option {
+                    padding: 4px 8px;
+                    cursor: pointer;
+                    color: var(--vscode-input-foreground);
+                }
+                .combobox-option:hover {
+                    background-color: var(--vscode-list-hoverBackground);
+                }
             </style>
         </head>
         <body>
@@ -800,8 +853,38 @@ export class TimeReportProvider {
                     vscode.postMessage({ command: 'today' });
                 });
 
-                // Overview project input handlers
+                // Overview project combobox handlers
+                const allProjectNames = ${projectNamesJson};
+
+                function showDropdown(input) {
+                    const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                    const filter = input.value.toLowerCase();
+                    const matches = allProjectNames.filter(n => n.toLowerCase().includes(filter));
+                    if (matches.length === 0) {
+                        dropdown.classList.remove('open');
+                        return;
+                    }
+                    dropdown.innerHTML = matches.map(n =>
+                        '<div class="combobox-option">' + escapeHtml(n) + '</div>'
+                    ).join('');
+                    dropdown.classList.add('open');
+                    dropdown.querySelectorAll('.combobox-option').forEach(opt => {
+                        opt.addEventListener('mousedown', (ev) => {
+                            ev.preventDefault();
+                            input.value = opt.textContent;
+                            dropdown.classList.remove('open');
+                            input.dispatchEvent(new Event('change'));
+                        });
+                    });
+                }
+
                 document.querySelectorAll('.overview-project-input').forEach(input => {
+                    input.addEventListener('focus', () => showDropdown(input));
+                    input.addEventListener('input', () => showDropdown(input));
+                    input.addEventListener('blur', () => {
+                        const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                        dropdown.classList.remove('open');
+                    });
                     input.addEventListener('change', (e) => {
                         const branch = e.target.dataset.branch;
                         const directory = e.target.dataset.directory;
