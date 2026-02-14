@@ -761,7 +761,8 @@ export class TimeReportProvider {
                     cursor: pointer;
                     color: var(--vscode-input-foreground);
                 }
-                .combobox-option:hover {
+                .combobox-option:hover,
+                .combobox-option.active {
                     background-color: var(--vscode-list-hoverBackground);
                 }
             </style>
@@ -859,6 +860,17 @@ export class TimeReportProvider {
 
                 // Overview project combobox handlers
                 const allProjectNames = ${projectNamesJson};
+                let activeIndex = -1;
+
+                function setActiveOption(dropdown, index) {
+                    const options = dropdown.querySelectorAll('.combobox-option');
+                    options.forEach(o => o.classList.remove('active'));
+                    if (index >= 0 && index < options.length) {
+                        options[index].classList.add('active');
+                        options[index].scrollIntoView({ block: 'nearest' });
+                    }
+                    activeIndex = index;
+                }
 
                 function showDropdown(input) {
                     const dropdown = input.parentElement.querySelector('.combobox-dropdown');
@@ -866,20 +878,34 @@ export class TimeReportProvider {
                     const matches = allProjectNames.filter(n => n.toLowerCase().includes(filter));
                     if (matches.length === 0) {
                         dropdown.classList.remove('open');
+                        activeIndex = -1;
                         return;
                     }
                     dropdown.innerHTML = matches.map(n =>
                         '<div class="combobox-option">' + escapeHtml(n) + '</div>'
                     ).join('');
                     dropdown.classList.add('open');
+                    activeIndex = -1;
                     dropdown.querySelectorAll('.combobox-option').forEach(opt => {
                         opt.addEventListener('mousedown', (ev) => {
                             ev.preventDefault();
                             input.value = opt.textContent;
                             dropdown.classList.remove('open');
+                            activeIndex = -1;
                             input.dispatchEvent(new Event('change'));
                         });
                     });
+                }
+
+                function selectActiveOption(input) {
+                    const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                    const options = dropdown.querySelectorAll('.combobox-option');
+                    if (activeIndex >= 0 && activeIndex < options.length) {
+                        input.value = options[activeIndex].textContent;
+                        dropdown.classList.remove('open');
+                        activeIndex = -1;
+                        input.dispatchEvent(new Event('change'));
+                    }
                 }
 
                 document.querySelectorAll('.overview-project-input').forEach(input => {
@@ -888,6 +914,27 @@ export class TimeReportProvider {
                     input.addEventListener('blur', () => {
                         const dropdown = input.parentElement.querySelector('.combobox-dropdown');
                         dropdown.classList.remove('open');
+                        activeIndex = -1;
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                        const options = dropdown.querySelectorAll('.combobox-option');
+                        if (!dropdown.classList.contains('open') || options.length === 0) {
+                            return;
+                        }
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setActiveOption(dropdown, Math.min(activeIndex + 1, options.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setActiveOption(dropdown, Math.max(activeIndex - 1, 0));
+                        } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            selectActiveOption(input);
+                        } else if (e.key === 'Escape') {
+                            dropdown.classList.remove('open');
+                            activeIndex = -1;
+                        }
                     });
                     input.addEventListener('change', (e) => {
                         const branch = e.target.dataset.branch;
