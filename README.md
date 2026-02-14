@@ -53,6 +53,36 @@ root/
 
 - `COFT: Show Time Report`: Open the time report view for the current day
 
+## Development
+
+### Dev Container
+
+The project includes a dev container based on `mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm`. Opening the project in VS Code with the Dev Containers extension will automatically set up the development environment with:
+
+- TypeScript, Node.js, and Git
+- ESLint and Prettier extensions
+- VS Code test dependencies (Electron/Chromium libraries)
+- Git bash aliases (e.g. `gs`, `gitcm`, `gap`)
+- `yo`, `generator-code`, and `@vscode/vsce` for extension scaffolding and packaging
+
+### Xvfb (X Virtual Framebuffer)
+
+VS Code extension tests require a display server because they launch a real VS Code (Electron) instance. The dev container starts **Xvfb** automatically on `:99` via `postStartCommand` and sets `DISPLAY=:99` so tests can run headlessly.
+
+Tests are executed with:
+
+```bash
+npm test
+```
+
+This runs `xvfb-run -a npx vscode-test` under the hood, which ensures a virtual display is available even if the background Xvfb process isn't running.
+
+### Building a VSIX
+
+```bash
+./build.vsix.sh
+```
+
 ## License
 
 [MIT](LICENSE.md)
