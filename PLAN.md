@@ -203,6 +203,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 
 ✅ Buttons to go back and forward in dates. Show today by default.
 ✅ Save button. Saves timereport to git.
+[ ] Button to update projects on branches based on the saved information in projects.json
 
 ##### Date Time
 
@@ -218,6 +219,10 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ✅ If COFT_BRANCH_TASK_URL is configured convert the branch column into a link using that pattern
 ✅ You should be able to assign a project for default branches (main/master etc). But the mapping between default branch and project shouldn't be saved to projects.
 ✅ Make the start and end of day editable, save them in the time report
+✅ Group the branches by project. When a project is assigned to a branch move it to that project.
+✅ Show a sum of time on the project level
+[ ] When opening a date that has no timereport saved. Auto assigned projects to branches.
+[ ] When opening a date that has a timereport saved. Don't auto assigned projects to branches.
 
 ✅ Show a table:
 - ✅ branch

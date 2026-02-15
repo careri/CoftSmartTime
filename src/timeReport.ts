@@ -58,10 +58,17 @@ interface OverviewEntry {
   timeSlots: number;
 }
 
+interface ProjectGroup {
+  project: string;
+  totalTimeSlots: number;
+  entries: OverviewEntry[];
+}
+
 interface OverviewData {
   startOfDay: string;
   endOfDay: string;
   entries: OverviewEntry[];
+  groups: ProjectGroup[];
 }
 
 export class TimeReportProvider {
@@ -526,10 +533,41 @@ export class TimeReportProvider {
       return a.directory.localeCompare(b.directory);
     });
 
+    // Group entries by project
+    const groupMap: { [project: string]: OverviewEntry[] } = {};
+    for (const entry of overviewEntries) {
+      const projectKey = entry.project || "";
+      if (!groupMap[projectKey]) {
+        groupMap[projectKey] = [];
+      }
+      groupMap[projectKey].push(entry);
+    }
+
+    const groups: ProjectGroup[] = Object.keys(groupMap)
+      .sort((a, b) => {
+        // Empty (unassigned) goes last
+        if (a === "" && b !== "") {
+          return 1;
+        }
+        if (a !== "" && b === "") {
+          return -1;
+        }
+        return a.localeCompare(b);
+      })
+      .map((project) => ({
+        project,
+        totalTimeSlots: groupMap[project].reduce(
+          (sum, e) => sum + e.timeSlots,
+          0,
+        ),
+        entries: groupMap[project],
+      }));
+
     return {
       startOfDay,
       endOfDay,
       entries: overviewEntries,
+      groups,
     };
   }
 
@@ -738,28 +776,50 @@ export class TimeReportProvider {
 
     const projectNamesJson = JSON.stringify(Array.from(allProjectNames));
 
-    const overviewRowsHtml = overview.entries
-      .map((entry, idx) => {
-        const selectedProject = entry.project;
-        const timeMinutes = entry.timeSlots * this.config.viewGroupByMinutes;
-        const hours = Math.floor(timeMinutes / 60);
-        const minutes = timeMinutes % 60;
-        const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-        const branchCell = this.config.branchTaskUrl
-          ? `<a href="${this.escapeHtml(this.config.branchTaskUrl.replace("{branch}", entry.branch))}" title="Open task">${this.escapeHtml(entry.branch)}</a>`
-          : this.escapeHtml(entry.branch);
-        const projectCell = `<div class="combobox-wrapper">
+    const overviewRowsHtml = overview.groups
+      .map((group) => {
+        const groupTimeMinutes =
+          group.totalTimeSlots * this.config.viewGroupByMinutes;
+        const groupHours = Math.floor(groupTimeMinutes / 60);
+        const groupMinutes = groupTimeMinutes % 60;
+        const groupTimeStr =
+          groupHours > 0
+            ? `${groupHours}h ${groupMinutes}m`
+            : `${groupMinutes}m`;
+        const groupLabel = group.project || "Unassigned";
+
+        const headerRow = `
+            <tr class="project-group-header">
+                <td colspan="3"><strong>${this.escapeHtml(groupLabel)}</strong></td>
+                <td><strong>${this.escapeHtml(groupTimeStr)}</strong></td>
+            </tr>`;
+
+        const entryRows = group.entries
+          .map((entry) => {
+            const selectedProject = entry.project;
+            const timeMinutes =
+              entry.timeSlots * this.config.viewGroupByMinutes;
+            const hours = Math.floor(timeMinutes / 60);
+            const minutes = timeMinutes % 60;
+            const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+            const branchCell = this.config.branchTaskUrl
+              ? `<a href="${this.escapeHtml(this.config.branchTaskUrl.replace("{branch}", entry.branch))}" title="Open task">${this.escapeHtml(entry.branch)}</a>`
+              : this.escapeHtml(entry.branch);
+            const projectCell = `<div class="combobox-wrapper">
                     <input type="text" class="overview-project-input" data-branch="${this.escapeHtml(entry.branch)}" data-directory="${this.escapeHtml(entry.directory)}" value="${this.escapeHtml(selectedProject)}" placeholder="Select or type project..." autocomplete="off" />
                     <div class="combobox-dropdown"></div>
                 </div>`;
-        return `
-            <tr>
+            return `
+            <tr class="project-group-entry">
                 <td>${branchCell}</td>
                 <td>${this.escapeHtml(entry.directory)}</td>
                 <td>${projectCell}</td>
                 <td>${this.escapeHtml(timeStr)}</td>
-            </tr>
-        `;
+            </tr>`;
+          })
+          .join("");
+
+        return headerRow + entryRows;
       })
       .join("");
 
@@ -946,6 +1006,14 @@ export class TimeReportProvider {
                 .day-range-input {
                     width: 120px;
                     display: inline-block;
+                }
+                .project-group-header td {
+                    background-color: var(--vscode-editor-lineHighlightBackground);
+                    border-top: 2px solid var(--vscode-panel-border);
+                    padding-top: 10px;
+                }
+                .project-group-entry td:first-child {
+                    padding-left: 24px;
                 }
             </style>
         </head>

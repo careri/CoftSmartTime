@@ -552,4 +552,205 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(report.startOfDay, "09:00");
     assert.strictEqual(report.endOfDay, "17:00");
   });
+
+  test("computeOverview groups entries by project", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "08:00",
+      endOfDay: "17:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-a",
+          directory: "/project1",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "ProjectX",
+          assignedBranch: "feature-a",
+        },
+        {
+          key: "10:00",
+          branch: "feature-b",
+          directory: "/project2",
+          files: ["b.ts"],
+          fileDetails: [{ file: "b.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "ProjectX",
+          assignedBranch: "feature-b",
+        },
+        {
+          key: "11:00",
+          branch: "feature-c",
+          directory: "/project3",
+          files: ["c.ts"],
+          fileDetails: [{ file: "c.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "ProjectY",
+          assignedBranch: "feature-c",
+        },
+      ],
+    };
+
+    const projects = {
+      "feature-a": { "/project1": "ProjectX" },
+      "feature-b": { "/project2": "ProjectX" },
+      "feature-c": { "/project3": "ProjectY" },
+    };
+
+    const overview = (provider as any).computeOverview(report, projects);
+    assert.strictEqual(overview.groups.length, 2);
+
+    const groupX = overview.groups.find((g: any) => g.project === "ProjectX");
+    assert.ok(groupX);
+    assert.strictEqual(groupX.entries.length, 2);
+    assert.strictEqual(groupX.totalTimeSlots, 2);
+
+    const groupY = overview.groups.find((g: any) => g.project === "ProjectY");
+    assert.ok(groupY);
+    assert.strictEqual(groupY.entries.length, 1);
+    assert.strictEqual(groupY.totalTimeSlots, 1);
+  });
+
+  test("computeOverview puts unassigned entries last", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "08:00",
+      endOfDay: "17:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project1",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+        {
+          key: "10:00",
+          branch: "feature-a",
+          directory: "/project2",
+          files: ["b.ts"],
+          fileDetails: [{ file: "b.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "MyProject",
+          assignedBranch: "feature-a",
+        },
+      ],
+    };
+
+    const projects = {
+      "feature-a": { "/project2": "MyProject" },
+    };
+
+    const overview = (provider as any).computeOverview(report, projects);
+    assert.strictEqual(overview.groups.length, 2);
+    assert.strictEqual(overview.groups[0].project, "MyProject");
+    assert.strictEqual(overview.groups[1].project, "");
+  });
+
+  test("computeOverview sums time slots per project group", () => {
+    const now = Date.now();
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "08:00",
+      endOfDay: "17:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-a",
+          directory: "/p1",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now }],
+          comment: "",
+          project: "Alpha",
+          assignedBranch: "feature-a",
+        },
+        {
+          key: "09:15",
+          branch: "feature-a",
+          directory: "/p1",
+          files: ["b.ts"],
+          fileDetails: [{ file: "b.ts", timestamp: now }],
+          comment: "",
+          project: "Alpha",
+          assignedBranch: "feature-a",
+        },
+        {
+          key: "10:00",
+          branch: "feature-b",
+          directory: "/p2",
+          files: ["c.ts"],
+          fileDetails: [{ file: "c.ts", timestamp: now }],
+          comment: "",
+          project: "Alpha",
+          assignedBranch: "feature-b",
+        },
+      ],
+    };
+
+    const projects = {
+      "feature-a": { "/p1": "Alpha" },
+      "feature-b": { "/p2": "Alpha" },
+    };
+
+    const overview = (provider as any).computeOverview(report, projects);
+    assert.strictEqual(overview.groups.length, 1);
+    assert.strictEqual(overview.groups[0].project, "Alpha");
+    assert.strictEqual(overview.groups[0].totalTimeSlots, 3);
+  });
+
+  test("computeOverview groups are sorted alphabetically with unassigned last", () => {
+    const now = Date.now();
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "08:00",
+      endOfDay: "17:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "b1",
+          directory: "/d1",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now }],
+          comment: "",
+          project: "Zebra",
+          assignedBranch: "b1",
+        },
+        {
+          key: "10:00",
+          branch: "b2",
+          directory: "/d2",
+          files: ["b.ts"],
+          fileDetails: [{ file: "b.ts", timestamp: now }],
+          comment: "",
+          project: "Alpha",
+          assignedBranch: "b2",
+        },
+        {
+          key: "11:00",
+          branch: "main",
+          directory: "/d3",
+          files: ["c.ts"],
+          fileDetails: [{ file: "c.ts", timestamp: now }],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    const projects = {
+      b1: { "/d1": "Zebra" },
+      b2: { "/d2": "Alpha" },
+    };
+
+    const overview = (provider as any).computeOverview(report, projects);
+    assert.strictEqual(overview.groups.length, 3);
+    assert.strictEqual(overview.groups[0].project, "Alpha");
+    assert.strictEqual(overview.groups[1].project, "Zebra");
+    assert.strictEqual(overview.groups[2].project, "");
+  });
 });
