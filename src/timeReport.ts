@@ -498,6 +498,20 @@ export class TimeReportProvider {
     }
   }
 
+  formatTotalWorkedHours(overview: OverviewData): string {
+    const totalSlots = overview.groups.reduce(
+      (sum, group) => sum + group.totalTimeSlots,
+      0,
+    );
+    const totalMinutes = totalSlots * this.config.viewGroupByMinutes;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (totalMinutes === 0) {
+      return "";
+    }
+    return hours > 0 ? `Total: ${hours}h ${minutes}m` : `Total: ${minutes}m`;
+  }
+
   private computeOverview(
     report: TimeReport,
     projects: ProjectMap,
@@ -978,9 +992,15 @@ export class TimeReportProvider {
                 .day-range {
                     margin-bottom: 12px;
                     font-size: 1.1em;
+                    display: flex;
+                    align-items: center;
                 }
                 .day-range span {
                     margin-right: 24px;
+                }
+                .day-range .worked-hours {
+                    margin-left: auto;
+                    font-weight: bold;
                 }
                 .section-title {
                     margin-top: 30px;
@@ -1064,6 +1084,7 @@ export class TimeReportProvider {
                 <div class="day-range">
                     <span><strong>Start:</strong> <input type="text" id="startOfDay" class="day-range-input" value="${this.escapeHtml(overview.startOfDay || "")}" placeholder="—" /></span>
                     <span><strong>End:</strong> <input type="text" id="endOfDay" class="day-range-input" value="${this.escapeHtml(overview.endOfDay || "")}" placeholder="—" /></span>
+                    <span class="worked-hours">${this.escapeHtml(this.formatTotalWorkedHours(overview))}</span>
                 </div>
                 <table>
                     <thead>

@@ -223,6 +223,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ✅ Show a sum of time on the project level
 ✅ When opening a date that has no timereport saved. Auto assigned projects to branches.
 ✅ When opening a date that has a timereport saved. Don't auto assigned projects to branches.
+✅ On the same row as start and stop time show a sum of the worked hours (sum of timeslots) to the right edge
 
 ✅ Show a table:
 - ✅ branch

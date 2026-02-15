@@ -857,4 +857,40 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(overview.groups[1].project, "Zebra");
     assert.strictEqual(overview.groups[2].project, "");
   });
+
+  test("formatTotalWorkedHours should return empty string when no timeslots", () => {
+    const overview = {
+      startOfDay: "",
+      endOfDay: "",
+      entries: [],
+      groups: [],
+    };
+    const result = (provider as any).formatTotalWorkedHours(overview);
+    assert.strictEqual(result, "");
+  });
+
+  test("formatTotalWorkedHours should format minutes only when less than an hour", () => {
+    const overview = {
+      startOfDay: "08:00",
+      endOfDay: "09:00",
+      entries: [],
+      groups: [{ project: "P1", totalTimeSlots: 3, entries: [] }],
+    };
+    const result = (provider as any).formatTotalWorkedHours(overview);
+    assert.strictEqual(result, "Total: 45m");
+  });
+
+  test("formatTotalWorkedHours should format hours and minutes", () => {
+    const overview = {
+      startOfDay: "08:00",
+      endOfDay: "17:00",
+      entries: [],
+      groups: [
+        { project: "P1", totalTimeSlots: 5, entries: [] },
+        { project: "P2", totalTimeSlots: 3, entries: [] },
+      ],
+    };
+    const result = (provider as any).formatTotalWorkedHours(overview);
+    assert.strictEqual(result, "Total: 2h 0m");
+  });
 });
