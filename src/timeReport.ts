@@ -26,6 +26,19 @@ interface TimeReport {
   entries: TimeEntry[];
 }
 
+interface SavedTimeEntry {
+  key: string;
+  branch: string;
+  directory: string;
+  comment: string;
+  project: string;
+}
+
+interface SavedTimeReport {
+  date: string;
+  entries: SavedTimeEntry[];
+}
+
 interface ProjectMap {
   [branch: string]: {
     [directory: string]: string;
@@ -159,20 +172,40 @@ export class TimeReportProvider {
       `${day}.json`,
     );
 
-    let report: TimeReport;
+    let savedEntries: SavedTimeEntry[] = [];
 
     try {
       const content = await fs.readFile(reportPath, "utf-8");
-      report = JSON.parse(content);
+      const saved: SavedTimeReport = JSON.parse(content);
+      savedEntries = saved.entries || [];
     } catch {
-      report = {
-        date: this.currentDate.toISOString(),
-        entries: [],
-      };
+      // No saved report yet
     }
 
-    // Always merge in batches from this day (handles both fresh and existing reports)
+    // Build report entirely from batch data
+    let report: TimeReport = {
+      date: this.currentDate.toISOString(),
+      entries: [],
+    };
     report = await this.mergeBatchesIntoReport(report);
+
+    // Apply saved comments and projects back onto batch-derived entries
+    for (const savedEntry of savedEntries) {
+      const match = report.entries.find(
+        (e) =>
+          e.key === savedEntry.key &&
+          e.branch === savedEntry.branch &&
+          e.directory === savedEntry.directory,
+      );
+      if (match) {
+        if (savedEntry.comment) {
+          match.comment = savedEntry.comment;
+        }
+        if (savedEntry.project) {
+          match.project = savedEntry.project;
+        }
+      }
+    }
 
     return report;
   }
@@ -503,10 +536,22 @@ export class TimeReportProvider {
 
       await fs.mkdir(reportDir, { recursive: true });
 
+      // Only persist key, branch, directory, comment, project
+      const savedReport: SavedTimeReport = {
+        date: reportData.date,
+        entries: reportData.entries.map((entry) => ({
+          key: entry.key,
+          branch: entry.branch,
+          directory: entry.directory,
+          comment: entry.comment,
+          project: entry.project,
+        })),
+      };
+
       const reportPath = path.join(reportDir, `${day}.json`);
       await fs.writeFile(
         reportPath,
-        JSON.stringify(reportData, null, 2),
+        JSON.stringify(savedReport, null, 2),
         "utf-8",
       );
 
