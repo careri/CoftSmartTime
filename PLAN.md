@@ -57,6 +57,7 @@ COFT_ROOT - The root directory
 COFT_QUEUE - Subdir of COFT_ROOT
 COFT_QUEUE_BATCH - Subdir of COFT_ROOT
 COFT_QUEUE_BACKUP - Subdir of COFT_ROOT
+COFT_TIMEREPORT_QUEUE - Subdir of COFT_ROOT
 COFT_DATA - Subdir of COFT_ROOT
 COFT_BACKUP - Subdir of COFT_ROOT
 COFT_INTERVAL_SECONDS - How often the batch logic shall execute, default value: 60
@@ -71,6 +72,7 @@ root/
 ├── queue/             # Each saved file in VS code writes an entry here
 ├── queue_batch/       # A temp dir
 ├── queue_backup/       # A temp dir
+├── timereport/             # Each saved file in VS code writes an entry here
 ├── data/              # A git repo that contains processed data from the queue
 ├── backup/              # A git bare repo
 ```
