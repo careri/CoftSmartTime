@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { CoftConfig } from "./config";
-import { StorageQueueWriter } from "./storageQueue";
+import { OperationQueueWriter } from "./operationQueue";
 
 interface TimeEntry {
   key: string;
@@ -791,7 +791,7 @@ export class TimeReportProvider {
         `${day}.json`,
       );
 
-      await StorageQueueWriter.write(
+      await OperationQueueWriter.write(
         this.config,
         {
           type: "timereport",
@@ -802,7 +802,7 @@ export class TimeReportProvider {
       );
 
       if (projectsChanged) {
-        await StorageQueueWriter.write(
+        await OperationQueueWriter.write(
           this.config,
           { type: "projects", file: "projects.json", body: projects },
           this.outputChannel,

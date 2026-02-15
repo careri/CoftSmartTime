@@ -47,8 +47,8 @@ export class StorageManager {
       await this.ensureDirectory(this.config.queue);
       await this.ensureDirectory(this.config.queueBatch);
       await this.ensureDirectory(this.config.queueBackup);
-      await this.ensureDirectory(this.config.storageQueue);
-      await this.ensureDirectory(this.config.storageQueueBackup);
+      await this.ensureDirectory(this.config.operationQueue);
+      await this.ensureDirectory(this.config.operationQueueBackup);
       await this.ensureDirectory(this.config.data);
       await this.ensureDirectory(path.join(this.config.data, "batches"));
       await this.ensureDirectory(path.join(this.config.data, "reports"));
@@ -199,5 +199,14 @@ export class StorageManager {
     }
 
     return entries;
+  }
+
+  async hasQueueFiles(): Promise<boolean> {
+    try {
+      const files = await fs.readdir(this.config.queue);
+      return files.length > 0;
+    } catch {
+      return false;
+    }
   }
 }
