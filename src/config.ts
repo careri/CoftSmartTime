@@ -8,6 +8,7 @@ export interface CoftConfig {
   queueBatch: string;
   queueBackup: string;
   data: string;
+  backup: string;
   intervalSeconds: number;
   viewGroupByMinutes: number;
   branchTaskUrl: string;
@@ -69,6 +70,7 @@ export class ConfigManager {
       queueBatch: path.join(root, "queue_batch"),
       queueBackup: path.join(root, "queue_backup"),
       data: path.join(root, "data"),
+      backup: path.join(root, "backup"),
       intervalSeconds,
       viewGroupByMinutes,
       branchTaskUrl,

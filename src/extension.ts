@@ -38,6 +38,18 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  // Register backup command
+  const backupDisposable = vscode.commands.registerCommand(
+    "coft-smarttime.backup",
+    async () => {
+      if (git) {
+        await git.housekeeping();
+      } else {
+        vscode.window.showErrorMessage("COFT SmartTime is not initialized");
+      }
+    },
+  );
+
   // Listen for config changes
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
@@ -52,6 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     saveDisposable,
     timeReportDisposable,
+    backupDisposable,
     configChangeDisposable,
   );
 

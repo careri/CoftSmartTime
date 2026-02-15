@@ -25,6 +25,7 @@ suite("Batch Test Suite", () => {
       queueBatch: path.join(testRoot, "queue_batch"),
       queueBackup: path.join(testRoot, "queue_backup"),
       data: path.join(testRoot, "data"),
+      backup: path.join(testRoot, "backup"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",

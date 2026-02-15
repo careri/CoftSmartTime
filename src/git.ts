@@ -25,6 +25,7 @@ export class GitManager {
   async initialize(): Promise<void> {
     try {
       await this.ensureRepo();
+      await this.ensureBackupRepo();
     } catch (error) {
       this.outputChannel.appendLine(`Error initializing git: ${error}`);
       throw error;
@@ -100,6 +101,15 @@ export class GitManager {
       const commitMessage = message || this.extensionVersion;
       await this.execGit(`commit -m "${commitMessage}"`);
       this.outputChannel.appendLine(`Git commit created: ${commitMessage}`);
+
+      // Run housekeeping after first commit of the day
+      const firstToday = await this.isFirstCommitToday();
+      if (firstToday) {
+        this.outputChannel.appendLine(
+          "First commit of the day, running housekeeping...",
+        );
+        await this.housekeeping();
+      }
     } catch (error) {
       this.outputChannel.appendLine(`Error creating git commit: ${error}`);
       throw error;
@@ -116,6 +126,116 @@ export class GitManager {
       return stdout.trim();
     } catch {
       return undefined;
+    }
+  }
+
+  private async ensureBackupRepo(): Promise<void> {
+    const bareGitDir = path.join(this.config.backup, "HEAD");
+
+    try {
+      await fs.access(bareGitDir);
+    } catch {
+      // No bare repo — initialize fresh
+      await this.initBareRepo();
+      await this.setOrigin();
+      return;
+    }
+
+    // HEAD exists — verify it's healthy
+    try {
+      await execAsync("git rev-parse --git-dir", { cwd: this.config.backup });
+      this.outputChannel.appendLine("Backup bare repository already exists");
+    } catch {
+      // Broken bare repo — back it up and reinitialize
+      await this.backupBrokenBackupRepo();
+      await this.initBareRepo();
+    }
+
+    await this.setOrigin();
+  }
+
+  private async initBareRepo(): Promise<void> {
+    await fs.mkdir(this.config.backup, { recursive: true });
+    await execAsync("git init --bare", { cwd: this.config.backup });
+    this.outputChannel.appendLine("Backup bare repository initialized");
+  }
+
+  private async backupBrokenBackupRepo(): Promise<void> {
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .replace("T", "_")
+      .replace("Z", "");
+    const brokenPath = `${this.config.backup}_broken_${timestamp}`;
+    this.outputChannel.appendLine(
+      `Backup bare repo is broken, renaming to: ${brokenPath}`,
+    );
+    vscode.window.showWarningMessage(
+      `COFT SmartTime: Backup repo was broken. Renamed to ${brokenPath}`,
+    );
+    await fs.rename(this.config.backup, brokenPath);
+    await fs.mkdir(this.config.backup, { recursive: true });
+  }
+
+  private async setOrigin(): Promise<void> {
+    // Ensure origin is set to backup
+    try {
+      const { stdout } = await this.execGit("remote get-url origin");
+      if (stdout.trim() !== this.config.backup) {
+        await this.execGit(`remote set-url origin "${this.config.backup}"`);
+        this.outputChannel.appendLine("Updated origin to backup repo");
+      }
+    } catch {
+      await this.execGit(`remote add origin "${this.config.backup}"`);
+      this.outputChannel.appendLine("Added origin pointing to backup repo");
+    }
+  }
+
+  async housekeeping(): Promise<void> {
+    this.outputChannel.appendLine("--- Starting housekeeping ---");
+
+    try {
+      // git gc in data repo
+      this.outputChannel.appendLine("Running git gc...");
+      await this.execGit("gc --auto");
+      this.outputChannel.appendLine("git gc completed");
+
+      // git push to backup
+      this.outputChannel.appendLine("Pushing to backup...");
+      try {
+        await this.execGit("push origin --all");
+        this.outputChannel.appendLine("Push to backup completed");
+      } catch (error) {
+        this.outputChannel.appendLine(`Push to backup failed: ${error}`);
+        vscode.window.showWarningMessage(
+          `COFT SmartTime: Failed to push to backup: ${error}`,
+        );
+      }
+
+      this.outputChannel.appendLine("--- Housekeeping completed ---");
+    } catch (error) {
+      this.outputChannel.appendLine(`Housekeeping error: ${error}`);
+      vscode.window.showErrorMessage(
+        `COFT SmartTime: Housekeeping failed: ${error}`,
+      );
+    }
+  }
+
+  async isFirstCommitToday(): Promise<boolean> {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const { stdout } = await this.execGit(
+        `log --oneline --since="${today}" --format="%H"`,
+      );
+      // If there are existing commits from today, this is not the first
+      // Count commits: if 0 or 1 (the one just made), it's the first
+      const commits = stdout
+        .trim()
+        .split("\n")
+        .filter((line) => line.length > 0);
+      return commits.length <= 1;
+    } catch {
+      return false;
     }
   }
 

@@ -25,6 +25,10 @@
       {
         "command": "coft-smarttime.showTimeReport",
         "title": "COFT: Show Time Report"
+      },
+      {
+        "command": "coft-smarttime.backup",
+        "title": "COFT: Backup"
       }
     ],
     "configuration": {

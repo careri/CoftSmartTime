@@ -21,6 +21,7 @@ suite("Git Test Suite", () => {
       queueBatch: path.join(testRoot, "queue_batch"),
       queueBackup: path.join(testRoot, "queue_backup"),
       data: path.join(testRoot, "data"),
+      backup: path.join(testRoot, "backup"),
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",
@@ -163,5 +164,123 @@ suite("Git Test Suite", () => {
     const gitDir = path.join(testConfig.data, ".git");
     const stat = await fs.stat(gitDir);
     assert.ok(stat.isDirectory());
+  });
+
+  test("GitManager should initialize backup bare repo", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Backup directory should exist with a bare repo
+    const headFile = path.join(testConfig.backup, "HEAD");
+    const stat = await fs.stat(headFile);
+    assert.ok(stat.isFile());
+
+    // Origin should be configured in data repo
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+
+    const { stdout } = await execAsync("git remote get-url origin", {
+      cwd: testConfig.data,
+    });
+    assert.strictEqual(stdout.trim(), testConfig.backup);
+  });
+
+  test("GitManager housekeeping should push to backup", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Create a file and commit
+    const testFile = path.join(testConfig.data, "test.txt");
+    await fs.writeFile(testFile, "backup test", "utf-8");
+    await git.commit("test commit");
+
+    // Verify backup bare repo has the commit
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+
+    const { stdout } = await execAsync("git log --oneline", {
+      cwd: testConfig.backup,
+    });
+    assert.ok(stdout.includes("test commit"));
+  });
+
+  test("GitManager isFirstCommitToday should return true for first commit", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // No commits yet today
+    const firstCheck = await git.isFirstCommitToday();
+    // No commits at all, should return false (log fails on empty repo)
+    // After a commit it should be true (only 1 commit today)
+
+    const testFile = path.join(testConfig.data, "test.txt");
+    await fs.writeFile(testFile, "first", "utf-8");
+
+    // Commit without housekeeping trigger (use commit directly)
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+    await execAsync("git add . && git commit -m 'first'", {
+      cwd: testConfig.data,
+    });
+
+    const isFirst = await git.isFirstCommitToday();
+    assert.strictEqual(isFirst, true);
+
+    // Make a second commit
+    await fs.writeFile(testFile, "second", "utf-8");
+    await execAsync("git add . && git commit -m 'second'", {
+      cwd: testConfig.data,
+    });
+
+    const isFirstAfterSecond = await git.isFirstCommitToday();
+    assert.strictEqual(isFirstAfterSecond, false);
+  });
+
+  test("GitManager double initialize should not duplicate origin", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+    await git.initialize();
+
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+
+    const { stdout } = await execAsync("git remote -v", {
+      cwd: testConfig.data,
+    });
+    const originLines = stdout
+      .split("\n")
+      .filter((line: string) => line.startsWith("origin"));
+    // Should have exactly 2 lines (fetch + push), not more
+    assert.strictEqual(originLines.length, 2);
+  });
+
+  test("GitManager should recover from broken backup bare repo", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Break the backup bare repo by corrupting HEAD
+    const headPath = path.join(testConfig.backup, "HEAD");
+    await fs.writeFile(headPath, "corrupted", "utf-8");
+
+    // Re-initialize should detect broken backup and recover
+    await git.initialize();
+
+    // Backup should be healthy again
+    const stat = await fs.stat(path.join(testConfig.backup, "HEAD"));
+    assert.ok(stat.isFile());
+
+    // A broken backup directory should have been created
+    const parentDir = path.dirname(testConfig.backup);
+    const siblings = await fs.readdir(parentDir);
+    const broken = siblings.filter((name) => name.includes("_broken_"));
+    assert.strictEqual(
+      broken.length,
+      1,
+      "Expected one broken backup directory",
+    );
   });
 });
