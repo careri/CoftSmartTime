@@ -7,7 +7,10 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 - **Automatic Tracking**: Records every file save with timestamp, directory, and git branch information
 - **Batch Processing**: Periodically processes saved files and commits them to a git repository
 - **Time Reports**: View and annotate your work activity grouped by time intervals
-- **Configurable**: Customize tracking intervals and time grouping
+- **Project Mapping**: Map branches to projects with persistent project assignments
+- **Git Backup**: Daily housekeeping with automatic push to a local bare repo backup
+- **Multi-Instance Safe**: All writes go through a serialized operation queue with file locking
+- **Configurable**: Customize tracking intervals, time grouping, and task URL patterns
 - **Dev Container Support**: Runs on the host side, so data persists even when using dev containers
 
 ## Requirements
@@ -19,6 +22,7 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 - `coft.smarttime.root`: Root directory for COFT data storage. Leave empty to use default (`~/.coft.smarttime`). If set to an invalid path, the default is used.
 - `coft.smarttime.intervalSeconds`: Interval in seconds for batch processing (60-300, default: 60)
 - `coft.smarttime.viewGroupByMinutes`: Time grouping in minutes for time report view (must divide evenly into 60, default: 15)
+- `coft.smarttime.branchTaskUrl`: Optional URL pattern for linking branches to tasks. Use `{branch}` as placeholder (e.g. `https://jira.example.com/browse/{branch}`)
 
 ## Getting Started
 
@@ -34,24 +38,30 @@ The extension creates the following directory structure:
 
 ```
 root/
-├── queue/             # Temporary queue for saved files
-├── queue_batch/       # Temporary batch processing directory
-├── queue_backup/      # Backup for failed processing
-├── data/              # Git repository with processed data
-    ├── batches/       # Batch entries
-    └── reports/       # Time reports organized by year/month/day
+├── queue/                  # Each file save creates an entry here
+├── queue_batch/            # Temporary batch processing directory
+├── queue_backup/           # Backup for failed processing
+├── operation_queue/        # Serialized write operations
+├── operation_queue_backup/ # Failed operations after max retries
+├── data/                   # Git repository with processed data
+│   ├── batches/            # Batch entries grouped by date
+│   ├── reports/            # Time reports organized by year/month/day
+│   └── projects.json       # Branch-to-project mapping
+└── backup/                 # Git bare repo (local backup)
 ```
 
 ### Workflow
 
 1. **Save Hook**: Every file save creates an entry in the queue
-2. **Batch Processing**: At configured intervals, the extension processes queued entries
-3. **Git Commits**: Processed batches are committed to the data repository
-4. **Time Reports**: View and annotate your work history by day
+2. **Batch Processing**: At configured intervals, queued entries are submitted as an operation request
+3. **Operation Queue**: A processor acquires a file lock, writes data, and commits to git
+4. **Housekeeping**: On the first commit each day, runs `git gc` and pushes to the backup repo
+5. **Time Reports**: View and annotate your work history by day, with project assignments and editable start/end times
 
 ## Commands
 
 - `COFT: Show Time Report`: Open the time report view for the current day
+- `COFT: Backup`: Manually run housekeeping (git gc + push to backup)
 
 ## Development
 
