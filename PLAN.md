@@ -188,7 +188,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ## VS Code Commands
 
 ✅ **Implemented** - Command available in command palette
-[ ] Command to run the house keeping routing. Call it backup
+✅ Command to run the house keeping routine. Call it backup
 
 ### Show time report
 
@@ -268,14 +268,15 @@ Group them by:
 
 ### Backup
 
-Use a git bare repo in the COFT_BACKUP.
-Add COFT_BACKUP as origin for COFT_DATA
+✅ Use a git bare repo in the COFT_BACKUP.
+✅ Add COFT_BACKUP as origin for COFT_DATA
+✅ If backup bare repo is broken, rename with timestamp suffix and reinitialize
 
 ### House keeping
 
-After first commit each day do this (check git history if it's the first):
-1. git gc in COFT_DATA
-2. git push to COFT_BACKUP
+✅ After first commit each day do this (check git history if it's the first):
+1. ✅ git gc in COFT_DATA
+2. ✅ git push to COFT_BACKUP
 
 
 
