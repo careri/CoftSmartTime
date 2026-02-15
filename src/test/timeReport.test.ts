@@ -333,4 +333,44 @@ suite("TimeReport Test Suite", () => {
     // Clean up
     delete defaultBranchProjects["no-branch\0/project"];
   });
+
+  test("shiftTimeKey shifts forward by one slot", () => {
+    const result = provider.shiftTimeKey("09:00", 1);
+    assert.strictEqual(result, "09:15");
+  });
+
+  test("shiftTimeKey shifts backward by one slot", () => {
+    const result = provider.shiftTimeKey("09:15", -1);
+    assert.strictEqual(result, "09:00");
+  });
+
+  test("shiftTimeKey crosses hour boundary forward", () => {
+    const result = provider.shiftTimeKey("09:45", 1);
+    assert.strictEqual(result, "10:00");
+  });
+
+  test("shiftTimeKey crosses hour boundary backward", () => {
+    const result = provider.shiftTimeKey("10:00", -1);
+    assert.strictEqual(result, "09:45");
+  });
+
+  test("shiftTimeKey returns null when going below 00:00", () => {
+    const result = provider.shiftTimeKey("00:00", -1);
+    assert.strictEqual(result, null);
+  });
+
+  test("shiftTimeKey returns null when going at or above 24:00", () => {
+    const result = provider.shiftTimeKey("23:45", 1);
+    assert.strictEqual(result, null);
+  });
+
+  test("shiftTimeKey returns null for invalid key format", () => {
+    const result = provider.shiftTimeKey("invalid", 1);
+    assert.strictEqual(result, null);
+  });
+
+  test("shiftTimeKey handles end of day boundary", () => {
+    const result = provider.shiftTimeKey("23:30", 1);
+    assert.strictEqual(result, "23:45");
+  });
 });

@@ -98,16 +98,21 @@ Batches are stored in COFT_DATA/batches
 
 ### Time report
 
-Timereports are saved by day in COFT_DATA/reports/year/month/day
+Timereports are saved by day in COFT_DATA/reports/year/month/day.
+Only user-editable fields are persisted; the full report is rebuilt from batch data on load.
 
 ```json
 {
-    "Date": <UTC>,
-    "Entries: {
-        "Key": <HOUR+COFT_VIEW_GROUP_BY_MINUTES>,
-        "Comment": <text>,
-        "Project": <text>
+  "date": "<UTC>",
+  "entries": [
+    {
+      "key": "<HOUR+COFT_VIEW_GROUP_BY_MINUTES>",
+      "branch": "<ITEM_BRANCH>",
+      "directory": "<ITEM_DIR>",
+      "comment": "<text>",
+      "project": "<text>"
     }
+  ]
 }
 ```
 
@@ -206,10 +211,10 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 
 ✅ At the top show a project view. Load projects.json
 ✅ Collect TIME_SLOTS by COMPOSITE_KEY and map to existing values in projects. If not found check if branch is bound in another directory.
-
 ✅ Show start of day and end of day. First and last changed file.
-[ ] If COFT_BRANCH_TASK_URL is configured convert the branch column into a link using that pattern
-[ ] You should be able to assign a project for default branches (main/master etc). But the mapping between default branch and project shouldn't be saved to projects.
+✅ If COFT_BRANCH_TASK_URL is configured convert the branch column into a link using that pattern
+✅ You should be able to assign a project for default branches (main/master etc). But the mapping between default branch and project shouldn't be saved to projects.
+[ ] Make the start and end of day editable, save them in the time report
 
 ✅ Show a table:
 - ✅ branch
@@ -227,6 +232,12 @@ Group them by:
 - ✅ COFT_VIEW_GROUP_BY_MINUTES <readonly>
 - ✅ Composite key of ITEM_BRANCH and ITEM_DIR <readonly> (COMPOSITE_KEY)
 
+####### Buttons
+
+✅ For each row add buttons on the left
+- ✅ Copy above, make a copy of the row and decrease the time with one TIME_SLOT
+- ✅ Copy below, make a copy of the row and increase the time with one TIME_SLOT
+
 
 ##### Batch Items
 
@@ -238,4 +249,5 @@ Group them by:
 - Consider adding filtering/search in time report view
 - Add export functionality for reports
 - Consider adding statistics/summary views
+- Update unit tests for smaller time report schema
 ```

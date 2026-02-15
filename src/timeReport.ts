@@ -136,6 +136,9 @@ export class TimeReportProvider {
           message.directory,
         );
         break;
+      case "copyRow":
+        await this.copyRow(message.index, message.direction);
+        break;
     }
   }
 
@@ -504,6 +507,58 @@ export class TimeReportProvider {
     };
   }
 
+  private async copyRow(
+    index: number,
+    direction: "above" | "below",
+  ): Promise<void> {
+    const report = await this.loadTimeReport();
+    const projects = await this.loadProjects();
+    this.assignBranches(report, projects);
+
+    const entry = report.entries[index];
+    if (!entry) {
+      return;
+    }
+
+    const newKey = this.shiftTimeKey(entry.key, direction === "above" ? -1 : 1);
+    if (!newKey) {
+      return;
+    }
+
+    const newEntry: TimeEntry = {
+      key: newKey,
+      branch: entry.branch,
+      directory: entry.directory,
+      files: [],
+      fileDetails: [],
+      comment: entry.comment,
+      project: entry.project,
+      assignedBranch: entry.assignedBranch,
+    };
+
+    report.entries.push(newEntry);
+    report.entries.sort((a, b) => a.key.localeCompare(b.key));
+
+    await this.saveReport(report);
+  }
+
+  shiftTimeKey(key: string, slots: number): string | null {
+    const parts = key.split(":");
+    if (parts.length !== 2) {
+      return null;
+    }
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const totalMinutes =
+      hours * 60 + minutes + slots * this.config.viewGroupByMinutes;
+    if (totalMinutes < 0 || totalMinutes >= 24 * 60) {
+      return null;
+    }
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMinutes = totalMinutes % 60;
+    return `${String(newHours).padStart(2, "0")}:${String(newMinutes).padStart(2, "0")}`;
+  }
+
   private getTimeKey(date: Date): string {
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = date.getMinutes();
@@ -659,6 +714,10 @@ export class TimeReportProvider {
       .map(
         (entry, index) => `
             <tr class="entry-row" data-index="${index}">
+                <td class="row-buttons-cell">
+                    <button class="row-btn copy-above-btn" data-index="${index}" title="Copy above">&#9650;</button>
+                    <button class="row-btn copy-below-btn" data-index="${index}" title="Copy below">&#9660;</button>
+                </td>
                 <td>${this.escapeHtml(entry.key)}</td>
                 <td>${this.escapeHtml(entry.directory)}</td>
                 <td>${this.escapeHtml(entry.branch)}</td>
@@ -810,6 +869,27 @@ export class TimeReportProvider {
                 .combobox-option.active {
                     background-color: var(--vscode-list-hoverBackground);
                 }
+                .row-buttons-cell {
+                    white-space: nowrap;
+                    width: 1%;
+                    padding: 2px 4px;
+                }
+                .row-btn {
+                    display: inline-block;
+                    padding: 2px 6px;
+                    margin: 0 1px;
+                    font-size: 10px;
+                    line-height: 1;
+                    min-width: 0;
+                    cursor: pointer;
+                    background-color: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    border: none;
+                    border-radius: 2px;
+                }
+                .row-btn:hover {
+                    background-color: var(--vscode-button-secondaryHoverBackground);
+                }
             </style>
         </head>
         <body>
@@ -847,6 +927,7 @@ export class TimeReportProvider {
             <table>
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Time</th>
                         <th>Directory</th>
                         <th>Branch</th>
@@ -856,7 +937,7 @@ export class TimeReportProvider {
                     </tr>
                 </thead>
                 <tbody>
-                    ${entriesHtml || '<tr><td colspan="6">No entries for this date</td></tr>'}
+                    ${entriesHtml || '<tr><td colspan="7">No entries for this date</td></tr>'}
                 </tbody>
             </table>
             
@@ -1021,13 +1102,29 @@ export class TimeReportProvider {
 
                 document.querySelectorAll('.entry-row').forEach(row => {
                     row.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'INPUT') {
+                        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
                             return;
                         }
                         const index = parseInt(row.dataset.index);
                         document.querySelectorAll('.entry-row').forEach(r => r.classList.remove('selected'));
                         row.classList.add('selected');
                         showDetail(index);
+                    });
+                });
+
+                document.querySelectorAll('.copy-above-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const index = parseInt(btn.dataset.index);
+                        vscode.postMessage({ command: 'copyRow', index: index, direction: 'above' });
+                    });
+                });
+
+                document.querySelectorAll('.copy-below-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const index = parseInt(btn.dataset.index);
+                        vscode.postMessage({ command: 'copyRow', index: index, direction: 'below' });
                     });
                 });
 
