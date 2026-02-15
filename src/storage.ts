@@ -91,11 +91,13 @@ export class StorageManager {
       timestamp,
     };
 
+    await this.ensureDirectory(this.config.queue);
     await fs.writeFile(queueFilePath, JSON.stringify(entry, null, 2), "utf-8");
     this.outputChannel.appendLine(`Queue entry created: ${filename}`);
   }
 
   async moveQueueToBatch(): Promise<string[]> {
+    await this.ensureDirectory(this.config.queueBatch);
     const files = await fs.readdir(this.config.queue);
     const movedFiles: string[] = [];
 
@@ -118,6 +120,7 @@ export class StorageManager {
   }
 
   async moveBatchToQueue(): Promise<void> {
+    await this.ensureDirectory(this.config.queue);
     const files = await fs.readdir(this.config.queueBatch);
 
     for (const file of files) {
@@ -139,6 +142,7 @@ export class StorageManager {
   }
 
   async moveBatchToBackup(): Promise<void> {
+    await this.ensureDirectory(this.config.queueBackup);
     const files = await fs.readdir(this.config.queueBatch);
 
     for (const file of files) {

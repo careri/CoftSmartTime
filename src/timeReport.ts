@@ -651,7 +651,14 @@ export class TimeReportProvider {
     // Update start/end of day based on the new entry
     this.updateStartEndOfDay(report);
 
-    await this.saveReportToFile(report);
+    try {
+      await this.saveReportToFile(report);
+    } catch (error) {
+      this.outputChannel.appendLine(`Error saving report after copy: ${error}`);
+      vscode.window.showErrorMessage(
+        `COFT SmartTime: Failed to save report: ${error}`,
+      );
+    }
     await this.updateView();
   }
 

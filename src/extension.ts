@@ -140,5 +140,8 @@ async function handleFileSave(document: vscode.TextDocument): Promise<void> {
     await storage.writeQueueEntry(workspaceRoot, relativePath, gitBranch);
   } catch (error) {
     outputChannel.appendLine(`Error handling file save: ${error}`);
+    vscode.window.showErrorMessage(
+      `COFT SmartTime: Failed to save time entry: ${error}`,
+    );
   }
 }

@@ -6,6 +6,19 @@ import * as os from "os";
 import { StorageManager } from "../storage";
 import { CoftConfig } from "../config";
 
+function createTestConfig(testRoot: string): CoftConfig {
+  return {
+    root: testRoot,
+    queue: path.join(testRoot, "queue"),
+    queueBatch: path.join(testRoot, "queue_batch"),
+    queueBackup: path.join(testRoot, "queue_backup"),
+    data: path.join(testRoot, "data"),
+    intervalSeconds: 60,
+    viewGroupByMinutes: 15,
+    branchTaskUrl: "",
+  };
+}
+
 suite("Storage Test Suite", () => {
   vscode.window.showInformationMessage("Start storage tests.");
 
@@ -17,16 +30,7 @@ suite("Storage Test Suite", () => {
     testRoot = path.join(os.tmpdir(), `coft-test-${Date.now()}`);
     await fs.mkdir(testRoot, { recursive: true });
 
-    testConfig = {
-      root: testRoot,
-      queue: path.join(testRoot, "queue"),
-      queueBatch: path.join(testRoot, "queue_batch"),
-      queueBackup: path.join(testRoot, "queue_backup"),
-      data: path.join(testRoot, "data"),
-      intervalSeconds: 60,
-      viewGroupByMinutes: 15,
-      branchTaskUrl: "",
-    };
+    testConfig = createTestConfig(testRoot);
 
     outputChannel = vscode.window.createOutputChannel("Test");
   });
@@ -122,5 +126,22 @@ suite("Storage Test Suite", () => {
 
     const batchFiles = await fs.readdir(testConfig.queueBatch);
     assert.strictEqual(batchFiles.length, 2);
+  });
+
+  test("writeQueueEntry should ensure queue directory exists", async () => {
+    const isolatedRoot = path.join(
+      os.tmpdir(),
+      `coft-ensure-dir-test-${Date.now()}`,
+    );
+    const isolatedConfig = createTestConfig(isolatedRoot);
+    const storage = new StorageManager(isolatedConfig, outputChannel);
+    // Do not call initialize - directory won't exist yet
+
+    await storage.writeQueueEntry("/test/workspace", "test.txt", "main");
+
+    const files = await fs.readdir(isolatedConfig.queue);
+    assert.strictEqual(files.length, 1);
+
+    await fs.rm(isolatedRoot, { recursive: true, force: true });
   });
 });

@@ -96,6 +96,9 @@ export class BatchProcessor {
           this.outputChannel.appendLine(
             `Error during batch generation or commit: ${error}`,
           );
+          vscode.window.showErrorMessage(
+            `COFT SmartTime: Batch processing failed: ${error}`,
+          );
           this.failureCount++;
 
           if (this.failureCount >= this.maxFailures) {
@@ -118,6 +121,9 @@ export class BatchProcessor {
       }
     } catch (error) {
       this.outputChannel.appendLine(`Error in batch processing: ${error}`);
+      vscode.window.showErrorMessage(
+        `COFT SmartTime: Batch processing error: ${error}`,
+      );
     }
 
     this.outputChannel.appendLine("--- Batch processing completed ---");
