@@ -13,6 +13,20 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 - **Configurable**: Customize tracking intervals, time grouping, and task URL patterns
 - **Dev Container Support**: Runs on the host side, so data persists even when using dev containers
 
+## Screenshots
+
+### Overview
+
+![Overview](images/Overview.png)
+
+### Timeslots
+
+![Timeslots](images/TimeSlots.png)
+
+### Batch items
+
+![Batch Items](images/BatchItems.png)
+
 ## Requirements
 
 - Git must be installed and available in your PATH
