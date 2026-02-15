@@ -217,9 +217,22 @@ export class TimeReportProvider {
         if (savedEntry.project) {
           match.project = savedEntry.project;
         }
+      } else {
+        // Add manually-created entries (e.g. from copy row) that have no batch data
+        report.entries.push({
+          key: savedEntry.key,
+          branch: savedEntry.branch,
+          directory: savedEntry.directory,
+          files: [],
+          fileDetails: [],
+          comment: savedEntry.comment || "",
+          project: savedEntry.project || "",
+          assignedBranch: "",
+        });
       }
     }
 
+    report.entries.sort((a, b) => a.key.localeCompare(b.key));
     return report;
   }
 
