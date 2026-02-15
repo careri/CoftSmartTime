@@ -373,4 +373,78 @@ suite("TimeReport Test Suite", () => {
     const result = provider.shiftTimeKey("23:30", 1);
     assert.strictEqual(result, "23:45");
   });
+
+  test("computeOverview uses saved startOfDay and endOfDay when present", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "08:00",
+      endOfDay: "17:30",
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: Date.now() }],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    const overview = (provider as any).computeOverview(report, {});
+    assert.strictEqual(overview.startOfDay, "08:00");
+    assert.strictEqual(overview.endOfDay, "17:30");
+  });
+
+  test("computeOverview falls back to computed values when saved values are absent", () => {
+    const now = Date.now();
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now }],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    const overview = (provider as any).computeOverview(report, {});
+    // Should be computed from file timestamps
+    const expectedTime = new Date(now).toLocaleTimeString();
+    assert.strictEqual(overview.startOfDay, expectedTime);
+    assert.strictEqual(overview.endOfDay, expectedTime);
+  });
+
+  test("computeOverview uses saved start but computes end when only start is saved", () => {
+    const now = Date.now();
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "07:30",
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now }],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    const overview = (provider as any).computeOverview(report, {});
+    assert.strictEqual(overview.startOfDay, "07:30");
+    const expectedEnd = new Date(now).toLocaleTimeString();
+    assert.strictEqual(overview.endOfDay, expectedEnd);
+  });
 });

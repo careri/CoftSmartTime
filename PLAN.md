@@ -214,7 +214,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ✅ Show start of day and end of day. First and last changed file.
 ✅ If COFT_BRANCH_TASK_URL is configured convert the branch column into a link using that pattern
 ✅ You should be able to assign a project for default branches (main/master etc). But the mapping between default branch and project shouldn't be saved to projects.
-[ ] Make the start and end of day editable, save them in the time report
+✅ Make the start and end of day editable, save them in the time report
 
 ✅ Show a table:
 - ✅ branch

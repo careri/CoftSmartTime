@@ -24,6 +24,8 @@ interface FileDetail {
 interface TimeReport {
   date: string;
   entries: TimeEntry[];
+  startOfDay?: string;
+  endOfDay?: string;
 }
 
 interface SavedTimeEntry {
@@ -37,6 +39,8 @@ interface SavedTimeEntry {
 interface SavedTimeReport {
   date: string;
   entries: SavedTimeEntry[];
+  startOfDay?: string;
+  endOfDay?: string;
 }
 
 interface ProjectMap {
@@ -176,11 +180,15 @@ export class TimeReportProvider {
     );
 
     let savedEntries: SavedTimeEntry[] = [];
+    let savedStartOfDay: string | undefined;
+    let savedEndOfDay: string | undefined;
 
     try {
       const content = await fs.readFile(reportPath, "utf-8");
       const saved: SavedTimeReport = JSON.parse(content);
       savedEntries = saved.entries || [];
+      savedStartOfDay = saved.startOfDay;
+      savedEndOfDay = saved.endOfDay;
     } catch {
       // No saved report yet
     }
@@ -191,6 +199,8 @@ export class TimeReportProvider {
       entries: [],
     };
     report = await this.mergeBatchesIntoReport(report);
+    report.startOfDay = savedStartOfDay;
+    report.endOfDay = savedEndOfDay;
 
     // Apply saved comments and projects back onto batch-derived entries
     for (const savedEntry of savedEntries) {
@@ -474,14 +484,17 @@ export class TimeReportProvider {
       }
     }
 
-    const startOfDay =
+    const computedStartOfDay =
       earliestTimestamp === Infinity
         ? ""
         : new Date(earliestTimestamp).toLocaleTimeString();
-    const endOfDay =
+    const computedEndOfDay =
       latestTimestamp === -Infinity
         ? ""
         : new Date(latestTimestamp).toLocaleTimeString();
+
+    const startOfDay = report.startOfDay || computedStartOfDay;
+    const endOfDay = report.endOfDay || computedEndOfDay;
 
     const overviewEntries: OverviewEntry[] = Object.values(
       compositeTimeSlots,
@@ -594,6 +607,8 @@ export class TimeReportProvider {
       // Only persist key, branch, directory, comment, project
       const savedReport: SavedTimeReport = {
         date: reportData.date,
+        startOfDay: reportData.startOfDay || undefined,
+        endOfDay: reportData.endOfDay || undefined,
         entries: reportData.entries.map((entry) => ({
           key: entry.key,
           branch: entry.branch,
@@ -890,6 +905,10 @@ export class TimeReportProvider {
                 .row-btn:hover {
                     background-color: var(--vscode-button-secondaryHoverBackground);
                 }
+                .day-range-input {
+                    width: 120px;
+                    display: inline-block;
+                }
             </style>
         </head>
         <body>
@@ -905,8 +924,8 @@ export class TimeReportProvider {
             <div class="overview-section">
                 <h2>Overview</h2>
                 <div class="day-range">
-                    <span><strong>Start:</strong> ${this.escapeHtml(overview.startOfDay || "—")}</span>
-                    <span><strong>End:</strong> ${this.escapeHtml(overview.endOfDay || "—")}</span>
+                    <span><strong>Start:</strong> <input type="text" id="startOfDay" class="day-range-input" value="${this.escapeHtml(overview.startOfDay || "")}" placeholder="—" /></span>
+                    <span><strong>End:</strong> <input type="text" id="endOfDay" class="day-range-input" value="${this.escapeHtml(overview.endOfDay || "")}" placeholder="—" /></span>
                 </div>
                 <table>
                     <thead>
@@ -962,6 +981,8 @@ export class TimeReportProvider {
                 let currentEntries = [];
                 let currentDate = '';
                 let currentProjects = {};
+                let currentStartOfDay = '';
+                let currentEndOfDay = '';
                 
                 window.addEventListener('message', event => {
                     const message = event.data;
@@ -969,6 +990,8 @@ export class TimeReportProvider {
                         currentEntries = message.entries;
                         currentDate = message.date;
                         currentProjects = message.projects || {};
+                        currentStartOfDay = message.overview.startOfDay || '';
+                        currentEndOfDay = message.overview.endOfDay || '';
                     }
                 });
                 
@@ -1095,7 +1118,9 @@ export class TimeReportProvider {
                         command: 'save',
                         data: {
                             date: currentDate,
-                            entries: currentEntries
+                            entries: currentEntries,
+                            startOfDay: document.getElementById('startOfDay').value.trim(),
+                            endOfDay: document.getElementById('endOfDay').value.trim()
                         }
                     });
                 });
