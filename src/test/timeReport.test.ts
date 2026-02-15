@@ -253,6 +253,84 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(report.entries[0].project, "");
   });
 
+  test("assignBranches auto-assigns project when no saved report", () => {
+    const projects = {
+      "feature-x": { "/project": "MyProject" },
+    };
+    const report = {
+      date: new Date().toISOString(),
+      hasSavedReport: false,
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-x",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, projects);
+
+    assert.strictEqual(report.entries[0].project, "MyProject");
+  });
+
+  test("assignBranches preserves saved project when report exists", () => {
+    const projects = {
+      "feature-x": { "/project": "NewProject" },
+    };
+    const report = {
+      date: new Date().toISOString(),
+      hasSavedReport: true,
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-x",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "SavedProject",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, projects);
+
+    assert.strictEqual(report.entries[0].project, "SavedProject");
+  });
+
+  test("assignBranches fills empty project from lookup even with saved report", () => {
+    const projects = {
+      "feature-x": { "/project": "LookedUp" },
+    };
+    const report = {
+      date: new Date().toISOString(),
+      hasSavedReport: true,
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-x",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, projects);
+
+    assert.strictEqual(report.entries[0].project, "LookedUp");
+  });
+
   test("lookupProject returns in-memory project for default branches", () => {
     const projects = {
       main: { "/project": "Persisted" },

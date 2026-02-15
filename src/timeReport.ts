@@ -26,6 +26,7 @@ interface TimeReport {
   entries: TimeEntry[];
   startOfDay?: string;
   endOfDay?: string;
+  hasSavedReport?: boolean;
 }
 
 interface SavedTimeEntry {
@@ -189,6 +190,7 @@ export class TimeReportProvider {
     let savedEntries: SavedTimeEntry[] = [];
     let savedStartOfDay: string | undefined;
     let savedEndOfDay: string | undefined;
+    let hasSavedReport = false;
 
     try {
       const content = await fs.readFile(reportPath, "utf-8");
@@ -196,6 +198,7 @@ export class TimeReportProvider {
       savedEntries = saved.entries || [];
       savedStartOfDay = saved.startOfDay;
       savedEndOfDay = saved.endOfDay;
+      hasSavedReport = true;
     } catch {
       // No saved report yet
     }
@@ -208,6 +211,7 @@ export class TimeReportProvider {
     report = await this.mergeBatchesIntoReport(report);
     report.startOfDay = savedStartOfDay;
     report.endOfDay = savedEndOfDay;
+    report.hasSavedReport = hasSavedReport;
 
     // Apply saved comments and projects back onto batch-derived entries
     for (const savedEntry of savedEntries) {
@@ -457,13 +461,16 @@ export class TimeReportProvider {
     }
 
     // Set assignedBranch and project on each entry
+    // Only auto-assign projects when no saved report exists
     for (const entry of report.entries) {
       entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
-      entry.project = this.lookupProject(
-        projects,
-        entry.assignedBranch,
-        entry.directory,
-      );
+      if (!report.hasSavedReport || !entry.project) {
+        entry.project = this.lookupProject(
+          projects,
+          entry.assignedBranch,
+          entry.directory,
+        );
+      }
     }
   }
 
