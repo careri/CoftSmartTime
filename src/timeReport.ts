@@ -378,13 +378,11 @@ export class TimeReportProvider {
   }
 
   private async saveProjects(projects: ProjectMap): Promise<void> {
-    const projectsPath = path.join(this.config.data, "projects.json");
-    await fs.writeFile(
-      projectsPath,
-      JSON.stringify(projects, null, 2),
-      "utf-8",
+    await OperationQueueWriter.write(
+      this.config,
+      { type: "projects", file: "projects.json", body: projects },
+      this.outputChannel,
     );
-    this.outputChannel.appendLine(`Projects saved: ${projectsPath}`);
   }
 
   private async updateProjectMapping(
@@ -716,37 +714,17 @@ export class TimeReportProvider {
     const year = this.currentDate.getFullYear();
     const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
     const day = String(this.currentDate.getDate()).padStart(2, "0");
+    const reportFile = path.join("reports", String(year), month, `${day}.json`);
 
-    const reportDir = path.join(
-      this.config.data,
-      "reports",
-      String(year),
-      month,
+    await OperationQueueWriter.write(
+      this.config,
+      {
+        type: "timereport",
+        file: reportFile,
+        body: this.buildSavedReport(reportData),
+      },
+      this.outputChannel,
     );
-
-    await fs.mkdir(reportDir, { recursive: true });
-
-    // Only persist key, branch, directory, comment, project
-    const savedReport: SavedTimeReport = {
-      date: reportData.date,
-      startOfDay: reportData.startOfDay || undefined,
-      endOfDay: reportData.endOfDay || undefined,
-      entries: reportData.entries.map((entry) => ({
-        key: entry.key,
-        branch: entry.branch,
-        directory: entry.directory,
-        comment: entry.comment,
-        project: entry.project,
-      })),
-    };
-
-    const reportPath = path.join(reportDir, `${day}.json`);
-    await fs.writeFile(
-      reportPath,
-      JSON.stringify(savedReport, null, 2),
-      "utf-8",
-    );
-    this.outputChannel.appendLine(`Time report written: ${reportPath}`);
   }
 
   private async saveReport(reportData: TimeReport): Promise<void> {
@@ -778,35 +756,6 @@ export class TimeReportProvider {
       }
       if (projectsChanged) {
         await this.saveProjects(projects);
-      }
-
-      // Queue git commit via storage queue instead of committing directly
-      const year = this.currentDate.getFullYear();
-      const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
-      const day = String(this.currentDate.getDate()).padStart(2, "0");
-      const reportFile = path.join(
-        "reports",
-        String(year),
-        month,
-        `${day}.json`,
-      );
-
-      await OperationQueueWriter.write(
-        this.config,
-        {
-          type: "timereport",
-          file: reportFile,
-          body: this.buildSavedReport(reportData),
-        },
-        this.outputChannel,
-      );
-
-      if (projectsChanged) {
-        await OperationQueueWriter.write(
-          this.config,
-          { type: "projects", file: "projects.json", body: projects },
-          this.outputChannel,
-        );
       }
 
       vscode.window.showInformationMessage("Time report saved successfully");

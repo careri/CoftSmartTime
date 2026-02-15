@@ -34,12 +34,14 @@ coft.smarttime should be the id of the extension.
 - `src/storage.ts` - File storage operations
 - `src/lock.ts` - File locking mechanism
 - `src/git.ts` - Git operations
-- `src/batch.ts` - Batch processing logic
+- `src/batch.ts` - Batch processing (writes ProcessBatchRequest)
+- `src/operationQueue.ts` - OperationRequest types, OperationQueueWriter, OperationQueueProcessor
 - `src/timeReport.ts` - Time report view
 - `src/extension.ts` - Main extension entry point
 - `src/test/config.test.ts` - Configuration tests
 - `src/test/storage.test.ts` - Storage tests
 - `src/test/batch.test.ts` - Batch processing tests
+- `src/test/operationQueue.test.ts` - Operation queue tests
 - `src/test/extension.test.ts` - Extension tests
 - `src/test/git.test.ts` - Git tests
 - `src/test/lock.test.ts` - Lock tests
@@ -57,7 +59,8 @@ COFT_ROOT - The root directory
 COFT_QUEUE - Subdir of COFT_ROOT
 COFT_QUEUE_BATCH - Subdir of COFT_ROOT
 COFT_QUEUE_BACKUP - Subdir of COFT_ROOT
-COFT_SAVE_QUEUE - subdir of COFT_ROOT
+COFT_OPERATION_QUEUE - Subdir of COFT_ROOT
+COFT_OPERATION_QUEUE_BACKUP - Subdir of COFT_ROOT
 COFT_DATA - Subdir of COFT_ROOT
 COFT_BACKUP - Subdir of COFT_ROOT
 COFT_INTERVAL_SECONDS - How often the batch logic shall execute, default value: 60
@@ -71,9 +74,11 @@ COFT_VIEW_GROUP_BY_MINUTES - How the view is grouped, default 15.
 root/
 ├── queue/             # Each saved file in VS code writes an entry here
 ├── queue_batch/       # A temp dir
-├── queue_backup/       # A temp dir
+├── queue_backup/      # A temp dir
+├── operation_queue/   # All storage operations are queued here as OperationRequests
+├── operation_queue_backup/ # Failed operations after max retries
 ├── data/              # A git repo that contains processed data from the queue
-├── backup/              # A git bare repo
+├── backup/            # A git bare repo
 ```
 
 ### Save Entry. A file
@@ -153,29 +158,21 @@ Manually added rows (from copy above/below) are also persisted and restored.
 
 ### Process Logic
 
-✅ This logic executes on timer, every COFT_INTERVAL_SECONDS seconds.
-✅ Uses logging with debug level for all steps.
+✅ BatchProcessor runs on timer, every COFT_INTERVAL_SECONDS seconds.
+✅ If queue files exist, writes a ProcessBatchRequest to the operation queue.
 
-1. ✅ Get a global lock on the COFT_DATA dir. OS agnostic with stale lock detection. Tries for 1 second
-2. ✅ If failed to get lock, exit the loop.
-3. ✅ Move all files in COFT_QUEUE into COFT_QUEUE_BATCH.
-4. ✅ Generate a Batch Entry in COFT_DATA from the files in COFT_QUEUE_BATCH.
-5. ✅ Make a git commit. Message: <extension version>
-6. ✅ DELETE the files in COFT_QUEUE_BATCH.
-7. ✅ Release the global lock.
+### Operation Queue
 
-#### Storage handling
+✅ OperationQueueProcessor runs on a 10s timer.
+✅ Acquires a global lock on COFT_DATA before processing any requests.
+✅ All storage mutations go through OperationRequests. No direct file writes.
+✅ Three request types:
 
-When saving a file make sure the target directory exists.
+- **ProcessBatchRequest** (`type: "processBatch"`) - Moves queue files to batch, groups them, writes batch entry to COFT_DATA, commits to git, deletes batch files.
+- **WriteTimeReportRequest** (`type: "timereport"`) - Writes a time report file to COFT_DATA, commits to git.
+- **UpdateProjectsRequest** (`type: "projects"`) - Writes projects.json to COFT_DATA, commits to git.
 
-#### Git handling
-
-If COFT_DATA isn't a git repo, do git init. Set user name and email. Derive from username and computer name
-
-#### Error handling
-
-✅ If the batch generator or git commit fails move the files in COFT_QUEUE_BATCH back to COFT_QUEUE.
-✅ If the batch generator fails many times in a row (5 failures) move the items in COFT_QUEUE_BATCH to COFT_QUEUE_BACKUP
+✅ Failed requests are retried up to 5 times, then moved to COFT_OPERATION_QUEUE_BACKUP.
 
 ## Configuration
 
@@ -206,7 +203,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ##### Controls
 
 ✅ Buttons to go back and forward in dates. Show today by default.
-✅ Save button. Saves timereport to git.
+✅ Save button. Saves timereport via OperationQueue (WriteTimeReportRequest).
 ✅ Button to update projects on branches based on the saved information in projects.json
 
 ##### Date Time
