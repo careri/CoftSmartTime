@@ -52,21 +52,15 @@ export class BatchProcessor {
     this.outputChannel.appendLine("--- Starting batch processing ---");
 
     try {
-      // Step 1: Get lock
-      this.outputChannel.appendLine("Step 1: Acquiring lock...");
+      this.outputChannel.appendLine("Acquiring lock...");
       const lockAcquired = await this.lock.acquire(1000);
       if (!lockAcquired) {
-        this.outputChannel.appendLine(
-          "Step 2: Failed to acquire lock, exiting",
-        );
+        this.outputChannel.appendLine("Failed to acquire lock, exiting");
         return;
       }
 
       try {
-        // Step 3: Move files from queue to batch
-        this.outputChannel.appendLine(
-          "Step 3: Moving files from queue to batch...",
-        );
+        this.outputChannel.appendLine("Moving files from queue to batch...");
         const movedFiles = await this.storage.moveQueueToBatch();
 
         if (movedFiles.length === 0) {
@@ -74,17 +68,14 @@ export class BatchProcessor {
           return;
         }
 
-        // Step 4: Generate batch entry
-        this.outputChannel.appendLine("Step 4: Generating batch entry...");
+        this.outputChannel.appendLine("Generating batch entry...");
         try {
           await this.generateBatchEntry();
 
-          // Step 5: Git commit
-          this.outputChannel.appendLine("Step 5: Creating git commit...");
+          this.outputChannel.appendLine("Creating git commit...");
           await this.git.commit();
 
-          // Step 6: Delete batch files
-          this.outputChannel.appendLine("Step 6: Deleting batch files...");
+          this.outputChannel.appendLine("Deleting batch files...");
           await this.storage.deleteBatchFiles();
 
           // Reset failure count on success
@@ -115,8 +106,7 @@ export class BatchProcessor {
           }
         }
       } finally {
-        // Step 7: Release lock
-        this.outputChannel.appendLine("Step 7: Releasing lock...");
+        this.outputChannel.appendLine("Releasing lock...");
         await this.lock.release();
       }
     } catch (error) {
