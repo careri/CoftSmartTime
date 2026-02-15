@@ -50,7 +50,11 @@ export class GitManager {
       // Repo is broken — back it up and reinitialize
       await this.backupBrokenRepo();
       await this.initRepo();
+      return;
     }
+
+    // Ensure .gitignore is up to date
+    await this.writeGitignore();
   }
 
   private async initRepo(): Promise<void> {
@@ -58,9 +62,13 @@ export class GitManager {
     await this.execGit("init");
     await this.execGit('config user.name "COFT SmartTime"');
     await this.execGit('config user.email "smarttime@coft.local"');
-    const gitignorePath = path.join(this.config.data, ".gitignore");
-    await fs.writeFile(gitignorePath, ".lock\n", "utf-8");
+    await this.writeGitignore();
     this.outputChannel.appendLine("Git repository initialized");
+  }
+
+  private async writeGitignore(): Promise<void> {
+    const gitignorePath = path.join(this.config.data, ".gitignore");
+    await fs.writeFile(gitignorePath, ".lock\n.last-housekeeping\n", "utf-8");
   }
 
   private async backupBrokenRepo(): Promise<void> {
@@ -212,6 +220,14 @@ export class GitManager {
         );
       }
 
+      // Record successful housekeeping
+      const housekeepingPath = path.join(
+        this.config.data,
+        ".last-housekeeping",
+      );
+      const today = new Date().toISOString().split("T")[0];
+      await fs.writeFile(housekeepingPath, today, "utf-8");
+
       this.outputChannel.appendLine("--- Housekeeping completed ---");
     } catch (error) {
       this.outputChannel.appendLine(`Housekeeping error: ${error}`);
@@ -223,19 +239,16 @@ export class GitManager {
 
   async isFirstCommitToday(): Promise<boolean> {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const { stdout } = await this.execGit(
-        `log --oneline --since="${today}" --format="%H"`,
+      const housekeepingPath = path.join(
+        this.config.data,
+        ".last-housekeeping",
       );
-      // If there are existing commits from today, this is not the first
-      // Count commits: if 0 or 1 (the one just made), it's the first
-      const commits = stdout
-        .trim()
-        .split("\n")
-        .filter((line) => line.length > 0);
-      return commits.length <= 1;
+      const lastDate = (await fs.readFile(housekeepingPath, "utf-8")).trim();
+      const today = new Date().toISOString().split("T")[0];
+      return lastDate !== today;
     } catch {
-      return false;
+      // File doesn't exist — housekeeping has never run
+      return true;
     }
   }
 

@@ -208,37 +208,58 @@ suite("Git Test Suite", () => {
     assert.ok(stdout.includes("test commit"));
   });
 
-  test("GitManager isFirstCommitToday should return true for first commit", async () => {
+  test("GitManager isFirstCommitToday should return true when no housekeeping file exists", async () => {
     const git = new GitManager(testConfig, outputChannel, "1.0.0");
     await git.initialize();
 
-    // No commits yet today
-    const firstCheck = await git.isFirstCommitToday();
-    // No commits at all, should return false (log fails on empty repo)
-    // After a commit it should be true (only 1 commit today)
+    const isFirst = await git.isFirstCommitToday();
+    assert.strictEqual(isFirst, true);
+  });
 
-    const testFile = path.join(testConfig.data, "test.txt");
-    await fs.writeFile(testFile, "first", "utf-8");
+  test("GitManager isFirstCommitToday should return false after housekeeping today", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
 
-    // Commit without housekeeping trigger (use commit directly)
-    const { exec } = await import("child_process");
-    const { promisify } = await import("util");
-    const execAsync = promisify(exec);
-    await execAsync("git add . && git commit -m 'first'", {
-      cwd: testConfig.data,
-    });
+    // Write today's date to .last-housekeeping
+    const today = new Date().toISOString().split("T")[0];
+    const housekeepingPath = path.join(testConfig.data, ".last-housekeeping");
+    await fs.writeFile(housekeepingPath, today, "utf-8");
+
+    const isFirst = await git.isFirstCommitToday();
+    assert.strictEqual(isFirst, false);
+  });
+
+  test("GitManager isFirstCommitToday should return true when housekeeping was yesterday", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Write yesterday's date to .last-housekeeping
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .split("T")[0];
+    const housekeepingPath = path.join(testConfig.data, ".last-housekeeping");
+    await fs.writeFile(housekeepingPath, yesterday, "utf-8");
 
     const isFirst = await git.isFirstCommitToday();
     assert.strictEqual(isFirst, true);
+  });
 
-    // Make a second commit
-    await fs.writeFile(testFile, "second", "utf-8");
-    await execAsync("git add . && git commit -m 'second'", {
-      cwd: testConfig.data,
-    });
+  test("GitManager housekeeping should write last-housekeeping file", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
 
-    const isFirstAfterSecond = await git.isFirstCommitToday();
-    assert.strictEqual(isFirstAfterSecond, false);
+    // Create a file and commit so backup push works
+    const testFile = path.join(testConfig.data, "test.txt");
+    await fs.writeFile(testFile, "housekeeping test", "utf-8");
+    await git.commit("test commit");
+
+    // Run housekeeping directly
+    await git.housekeeping();
+
+    const housekeepingPath = path.join(testConfig.data, ".last-housekeeping");
+    const lastDate = (await fs.readFile(housekeepingPath, "utf-8")).trim();
+    const today = new Date().toISOString().split("T")[0];
+    assert.strictEqual(lastDate, today);
   });
 
   test("GitManager double initialize should not duplicate origin", async () => {

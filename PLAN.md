@@ -271,7 +271,7 @@ Add COFT_BACKUP as origin for COFT_DATA
 
 ### House keeping
 
-After first commit each day do this (check git history if it's the first):
+After first commit each day do this (tracked via `.last-housekeeping` file in COFT_DATA):
 1. git gc in COFT_DATA
 2. git push to COFT_BACKUP
 
