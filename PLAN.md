@@ -100,10 +100,13 @@ Batches are stored in COFT_DATA/batches
 
 Timereports are saved by day in COFT_DATA/reports/year/month/day.
 Only user-editable fields are persisted; the full report is rebuilt from batch data on load.
+Manually added rows (from copy above/below) are also persisted and restored.
 
 ```json
 {
   "date": "<UTC>",
+  "startOfDay": "<optional, user-editable time string>",
+  "endOfDay": "<optional, user-editable time string>",
   "entries": [
     {
       "key": "<HOUR+COFT_VIEW_GROUP_BY_MINUTES>",
@@ -237,6 +240,7 @@ Group them by:
 ✅ For each row add buttons on the left
 - ✅ Copy above, make a copy of the row and decrease the time with one TIME_SLOT
 - ✅ Copy below, make a copy of the row and increase the time with one TIME_SLOT
+- ✅ Copied rows are persisted and update start/end of day
 
 
 ##### Batch Items
