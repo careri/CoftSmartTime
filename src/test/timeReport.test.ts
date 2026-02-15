@@ -447,4 +447,109 @@ suite("TimeReport Test Suite", () => {
     const expectedEnd = new Date(now).toLocaleTimeString();
     assert.strictEqual(overview.endOfDay, expectedEnd);
   });
+
+  test("updateStartEndOfDay sets start and end from entry keys", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: undefined as string | undefined,
+      endOfDay: undefined as string | undefined,
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+        {
+          key: "10:30",
+          branch: "main",
+          directory: "/project",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    provider.updateStartEndOfDay(report);
+    assert.strictEqual(report.startOfDay, "09:00");
+    assert.strictEqual(report.endOfDay, "10:45");
+  });
+
+  test("updateStartEndOfDay does not shrink existing range", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "07:00",
+      endOfDay: "18:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/project",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    provider.updateStartEndOfDay(report);
+    assert.strictEqual(report.startOfDay, "07:00");
+    assert.strictEqual(report.endOfDay, "18:00");
+  });
+
+  test("updateStartEndOfDay expands range when new entry extends beyond", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "09:00",
+      endOfDay: "17:00",
+      entries: [
+        {
+          key: "08:00",
+          branch: "main",
+          directory: "/project",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+        {
+          key: "17:30",
+          branch: "main",
+          directory: "/project",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "main",
+        },
+      ],
+    };
+
+    provider.updateStartEndOfDay(report);
+    assert.strictEqual(report.startOfDay, "08:00");
+    assert.strictEqual(report.endOfDay, "17:45");
+  });
+
+  test("updateStartEndOfDay does nothing for empty entries", () => {
+    const report = {
+      date: new Date().toISOString(),
+      startOfDay: "09:00" as string | undefined,
+      endOfDay: "17:00" as string | undefined,
+      entries: [] as any[],
+    };
+
+    provider.updateStartEndOfDay(report);
+    assert.strictEqual(report.startOfDay, "09:00");
+    assert.strictEqual(report.endOfDay, "17:00");
+  });
 });

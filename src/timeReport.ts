@@ -552,7 +552,28 @@ export class TimeReportProvider {
     report.entries.push(newEntry);
     report.entries.sort((a, b) => a.key.localeCompare(b.key));
 
-    await this.saveReport(report);
+    // Update start/end of day based on the new entry
+    this.updateStartEndOfDay(report);
+
+    await this.saveReportToFile(report);
+    await this.updateView();
+  }
+
+  updateStartEndOfDay(report: TimeReport): void {
+    if (report.entries.length === 0) {
+      return;
+    }
+    const keys = report.entries.map((e) => e.key).sort();
+    const firstKey = keys[0];
+    const lastKey = keys[keys.length - 1];
+    const lastEndKey = this.shiftTimeKey(lastKey, 1);
+
+    if (!report.startOfDay || firstKey < report.startOfDay) {
+      report.startOfDay = firstKey;
+    }
+    if (!report.endOfDay || (lastEndKey && lastEndKey > report.endOfDay)) {
+      report.endOfDay = lastEndKey || lastKey;
+    }
   }
 
   shiftTimeKey(key: string, slots: number): string | null {
@@ -581,6 +602,43 @@ export class TimeReportProvider {
     return `${hours}:${minutesStr}`;
   }
 
+  private async saveReportToFile(reportData: TimeReport): Promise<void> {
+    const year = this.currentDate.getFullYear();
+    const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
+    const day = String(this.currentDate.getDate()).padStart(2, "0");
+
+    const reportDir = path.join(
+      this.config.data,
+      "reports",
+      String(year),
+      month,
+    );
+
+    await fs.mkdir(reportDir, { recursive: true });
+
+    // Only persist key, branch, directory, comment, project
+    const savedReport: SavedTimeReport = {
+      date: reportData.date,
+      startOfDay: reportData.startOfDay || undefined,
+      endOfDay: reportData.endOfDay || undefined,
+      entries: reportData.entries.map((entry) => ({
+        key: entry.key,
+        branch: entry.branch,
+        directory: entry.directory,
+        comment: entry.comment,
+        project: entry.project,
+      })),
+    };
+
+    const reportPath = path.join(reportDir, `${day}.json`);
+    await fs.writeFile(
+      reportPath,
+      JSON.stringify(savedReport, null, 2),
+      "utf-8",
+    );
+    this.outputChannel.appendLine(`Time report written: ${reportPath}`);
+  }
+
   private async saveReport(reportData: TimeReport): Promise<void> {
     const lockAcquired = await this.lock.acquire(1000);
     if (!lockAcquired) {
@@ -591,39 +649,7 @@ export class TimeReportProvider {
     }
 
     try {
-      const year = this.currentDate.getFullYear();
-      const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
-      const day = String(this.currentDate.getDate()).padStart(2, "0");
-
-      const reportDir = path.join(
-        this.config.data,
-        "reports",
-        String(year),
-        month,
-      );
-
-      await fs.mkdir(reportDir, { recursive: true });
-
-      // Only persist key, branch, directory, comment, project
-      const savedReport: SavedTimeReport = {
-        date: reportData.date,
-        startOfDay: reportData.startOfDay || undefined,
-        endOfDay: reportData.endOfDay || undefined,
-        entries: reportData.entries.map((entry) => ({
-          key: entry.key,
-          branch: entry.branch,
-          directory: entry.directory,
-          comment: entry.comment,
-          project: entry.project,
-        })),
-      };
-
-      const reportPath = path.join(reportDir, `${day}.json`);
-      await fs.writeFile(
-        reportPath,
-        JSON.stringify(savedReport, null, 2),
-        "utf-8",
-      );
+      await this.saveReportToFile(reportData);
 
       // Save project mappings from report entries
       const projects = await this.loadProjects();
@@ -655,7 +681,6 @@ export class TimeReportProvider {
       await this.git.commit("report");
 
       vscode.window.showInformationMessage("Time report saved successfully");
-      this.outputChannel.appendLine(`Time report saved: ${reportPath}`);
     } catch (error) {
       this.outputChannel.appendLine(`Error saving time report: ${error}`);
       vscode.window.showErrorMessage(`Failed to save time report: ${error}`);
