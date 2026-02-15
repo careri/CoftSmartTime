@@ -258,9 +258,13 @@ Group them by:
 
 ## Errors
 
-Show a notification in VS Code if save fails
+✅ Show a notification in VS Code if save fails
+✅ Ensure target directories exist before write operations
 
 ## Git handling
+
+✅ Ensure git repo exists before operations
+✅ If git repo is broken, rename to backup with timestamp suffix and reinitialize
 
 ### Backup
 

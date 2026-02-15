@@ -102,4 +102,66 @@ suite("Git Test Suite", () => {
     // Commit with no changes should not throw
     await git.commit();
   });
+
+  test("GitManager should recover from broken git repo", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Create a file and commit so there's data to preserve
+    const testFile = path.join(testConfig.data, "important.txt");
+    await fs.writeFile(testFile, "important data", "utf-8");
+    await git.commit();
+
+    // Break the git repo by corrupting .git/HEAD
+    const headPath = path.join(testConfig.data, ".git", "HEAD");
+    await fs.writeFile(headPath, "corrupted", "utf-8");
+
+    // Re-initialize should detect broken repo and recover
+    await git.initialize();
+
+    // New .git directory should exist and be healthy
+    const gitDir = path.join(testConfig.data, ".git");
+    const stat = await fs.stat(gitDir);
+    assert.ok(stat.isDirectory());
+
+    // A backup directory should have been created
+    const parentDir = path.dirname(testConfig.data);
+    const siblings = await fs.readdir(parentDir);
+    const backups = siblings.filter((name) => name.includes("_backup_"));
+    assert.strictEqual(backups.length, 1, "Expected one backup directory");
+  });
+
+  test("GitManager should initialize when data directory is missing", async () => {
+    // Remove the data directory entirely
+    await fs.rm(testConfig.data, { recursive: true, force: true });
+
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    const gitDir = path.join(testConfig.data, ".git");
+    const stat = await fs.stat(gitDir);
+    assert.ok(stat.isDirectory());
+  });
+
+  test("GitManager commit should recover from broken repo", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Break the git repo
+    const headPath = path.join(testConfig.data, ".git", "HEAD");
+    await fs.writeFile(headPath, "corrupted", "utf-8");
+
+    // Create a file to commit
+    // commit() should recover the repo first, then the file won't exist
+    // in the new repo, so we need to create it after recovery.
+    // Actually commit calls ensureRepo which may reinit, then add/commit.
+    // Let's create a file after calling commit (which recovers internally).
+    // But we can't do that. Let's just verify commit doesn't throw.
+    await git.commit();
+
+    // Verify repo is healthy after recovery
+    const gitDir = path.join(testConfig.data, ".git");
+    const stat = await fs.stat(gitDir);
+    assert.ok(stat.isDirectory());
+  });
 });

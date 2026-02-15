@@ -24,28 +24,66 @@ export class GitManager {
 
   async initialize(): Promise<void> {
     try {
-      // Check if data directory is already a git repo
-      try {
-        await this.execGit("rev-parse --git-dir");
-        this.outputChannel.appendLine("Git repository already initialized");
-      } catch {
-        // Initialize git repo
-        await this.execGit("init");
-        await this.execGit('config user.name "COFT SmartTime"');
-        await this.execGit('config user.email "smarttime@coft.local"');
-        // Create .gitignore to exclude lock file
-        const gitignorePath = path.join(this.config.data, ".gitignore");
-        await fs.writeFile(gitignorePath, ".lock\n", "utf-8");
-        this.outputChannel.appendLine("Git repository initialized");
-      }
+      await this.ensureRepo();
     } catch (error) {
       this.outputChannel.appendLine(`Error initializing git: ${error}`);
       throw error;
     }
   }
 
+  private async ensureRepo(): Promise<void> {
+    const gitDir = path.join(this.config.data, ".git");
+
+    try {
+      await fs.access(gitDir);
+    } catch {
+      // No .git directory — initialize a fresh repo
+      await this.initRepo();
+      return;
+    }
+
+    // .git exists — verify it's healthy
+    try {
+      await this.execGit("rev-parse --git-dir");
+    } catch {
+      // Repo is broken — back it up and reinitialize
+      await this.backupBrokenRepo();
+      await this.initRepo();
+    }
+  }
+
+  private async initRepo(): Promise<void> {
+    await fs.mkdir(this.config.data, { recursive: true });
+    await this.execGit("init");
+    await this.execGit('config user.name "COFT SmartTime"');
+    await this.execGit('config user.email "smarttime@coft.local"');
+    const gitignorePath = path.join(this.config.data, ".gitignore");
+    await fs.writeFile(gitignorePath, ".lock\n", "utf-8");
+    this.outputChannel.appendLine("Git repository initialized");
+  }
+
+  private async backupBrokenRepo(): Promise<void> {
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .replace("T", "_")
+      .replace("Z", "");
+    const backupPath = `${this.config.data}_backup_${timestamp}`;
+    this.outputChannel.appendLine(
+      `Git repository is broken, backing up to: ${backupPath}`,
+    );
+    vscode.window.showWarningMessage(
+      `COFT SmartTime: Git repo was broken. Backed up to ${backupPath}`,
+    );
+    await fs.rename(this.config.data, backupPath);
+    await fs.mkdir(this.config.data, { recursive: true });
+  }
+
   async commit(message?: string): Promise<void> {
     try {
+      // Ensure repo is healthy before committing
+      await this.ensureRepo();
+
       // Add all changes
       await this.execGit("add .");
 
