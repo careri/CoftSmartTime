@@ -203,7 +203,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 
 ✅ Buttons to go back and forward in dates. Show today by default.
 ✅ Save button. Saves timereport to git.
-[ ] Button to update projects on branches based on the saved information in projects.json
+✅ Button to update projects on branches based on the saved information in projects.json
 
 ##### Date Time
 

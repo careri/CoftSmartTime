@@ -151,6 +151,26 @@ export class TimeReportProvider {
       case "copyRow":
         await this.copyRow(message.index, message.direction);
         break;
+      case "refreshProjects":
+        await this.refreshProjects();
+        break;
+    }
+  }
+
+  private async refreshProjects(): Promise<void> {
+    const report = await this.loadTimeReport();
+    const projects = await this.loadProjects();
+    this.assignBranches(report, projects, true);
+    const overview = this.computeOverview(report, projects);
+    if (this.panel) {
+      this.panel.webview.html = this.getHtmlContent(report, overview, projects);
+      await this.panel.webview.postMessage({
+        command: "loadEntries",
+        entries: report.entries,
+        date: report.date,
+        overview: overview,
+        projects: projects,
+      });
     }
   }
 
@@ -432,7 +452,11 @@ export class TimeReportProvider {
     return "";
   }
 
-  assignBranches(report: TimeReport, projects: ProjectMap): void {
+  assignBranches(
+    report: TimeReport,
+    projects: ProjectMap,
+    forceRefresh: boolean = false,
+  ): void {
     // Count files per branch per time key
     const keyBranchFiles: { [key: string]: { [branch: string]: number } } = {};
 
@@ -464,7 +488,7 @@ export class TimeReportProvider {
     // Only auto-assign projects when no saved report exists
     for (const entry of report.entries) {
       entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
-      if (!report.hasSavedReport || !entry.project) {
+      if (forceRefresh || !report.hasSavedReport || !entry.project) {
         entry.project = this.lookupProject(
           projects,
           entry.assignedBranch,
@@ -1028,6 +1052,7 @@ export class TimeReportProvider {
             <div class="header">
                 <h1>${this.escapeHtml(dateStr)}</h1>
                 <div class="navigation">
+                    <button id="refreshProjectsBtn" title="Re-apply project mappings from projects.json">&#8635; Update Projects</button>
                     <button id="prevDay">&#8592; Previous</button>
                     <button id="today">Today</button>
                     <button id="nextDay">Next &#8594;</button>
@@ -1118,6 +1143,10 @@ export class TimeReportProvider {
                 
                 document.getElementById('today').addEventListener('click', () => {
                     vscode.postMessage({ command: 'today' });
+                });
+
+                document.getElementById('refreshProjectsBtn').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'refreshProjects' });
                 });
 
                 // Overview project combobox handlers

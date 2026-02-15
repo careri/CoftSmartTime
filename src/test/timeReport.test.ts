@@ -331,6 +331,32 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(report.entries[0].project, "LookedUp");
   });
 
+  test("assignBranches with forceRefresh overrides saved project", () => {
+    const projects = {
+      "feature-x": { "/project": "UpdatedProject" },
+    };
+    const report = {
+      date: new Date().toISOString(),
+      hasSavedReport: true,
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature-x",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "OldProject",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, projects, true);
+
+    assert.strictEqual(report.entries[0].project, "UpdatedProject");
+  });
+
   test("lookupProject returns in-memory project for default branches", () => {
     const projects = {
       main: { "/project": "Persisted" },
