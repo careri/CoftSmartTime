@@ -5,7 +5,6 @@ import * as path from "path";
 import * as os from "os";
 import { StorageManager, QueueEntry } from "../storage";
 import { GitManager } from "../git";
-import { BatchProcessor } from "../batch";
 import { CoftConfig } from "../config";
 
 suite("Batch Test Suite", () => {
@@ -24,6 +23,8 @@ suite("Batch Test Suite", () => {
       queue: path.join(testRoot, "queue"),
       queueBatch: path.join(testRoot, "queue_batch"),
       queueBackup: path.join(testRoot, "queue_backup"),
+      storageQueue: path.join(testRoot, "storage_queue"),
+      storageQueueBackup: path.join(testRoot, "storage_queue_backup"),
       data: path.join(testRoot, "data"),
       backup: path.join(testRoot, "backup"),
       intervalSeconds: 60,

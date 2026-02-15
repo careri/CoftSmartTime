@@ -4,14 +4,12 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { TimeReportProvider } from "../timeReport";
-import { GitManager } from "../git";
 import { CoftConfig } from "../config";
 
 suite("TimeReport Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
-  let git: GitManager;
   let provider: TimeReportProvider;
 
   setup(async () => {
@@ -23,6 +21,8 @@ suite("TimeReport Test Suite", () => {
       queue: path.join(testRoot, "queue"),
       queueBatch: path.join(testRoot, "queue_batch"),
       queueBackup: path.join(testRoot, "queue_backup"),
+      storageQueue: path.join(testRoot, "storage_queue"),
+      storageQueueBackup: path.join(testRoot, "storage_queue_backup"),
       data: path.join(testRoot, "data"),
       backup: path.join(testRoot, "backup"),
       intervalSeconds: 60,
@@ -38,9 +38,7 @@ suite("TimeReport Test Suite", () => {
     await fs.mkdir(path.join(testConfig.data, "reports"), { recursive: true });
 
     outputChannel = vscode.window.createOutputChannel("TimeReport Test");
-    git = new GitManager(testConfig, outputChannel, "0.0.1");
-    await git.initialize();
-    provider = new TimeReportProvider(testConfig, git, outputChannel);
+    provider = new TimeReportProvider(testConfig, outputChannel);
   });
 
   teardown(async () => {

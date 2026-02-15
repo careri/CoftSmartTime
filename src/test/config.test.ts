@@ -64,6 +64,14 @@ suite("Config Test Suite", () => {
       config.queueBackup,
       path.join(config.root, "queue_backup"),
     );
+    assert.strictEqual(
+      config.storageQueue,
+      path.join(config.root, "storage_queue"),
+    );
+    assert.strictEqual(
+      config.storageQueueBackup,
+      path.join(config.root, "storage_queue_backup"),
+    );
     assert.strictEqual(config.data, path.join(config.root, "data"));
   });
 

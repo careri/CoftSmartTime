@@ -4,10 +4,12 @@ import { ConfigManager, CoftConfig } from "./config";
 import { StorageManager } from "./storage";
 import { GitManager } from "./git";
 import { BatchProcessor } from "./batch";
+import { StorageQueueProcessor } from "./storageQueue";
 import { TimeReportProvider } from "./timeReport";
 
 let outputChannel: vscode.OutputChannel;
 let batchProcessor: BatchProcessor | null = null;
+let storageQueueProcessor: StorageQueueProcessor | null = null;
 let timeReportProvider: TimeReportProvider | null = null;
 let storage: StorageManager | null = null;
 let git: GitManager | null = null;
@@ -88,6 +90,10 @@ function shutdown(): void {
     batchProcessor.stop();
     batchProcessor = null;
   }
+  if (storageQueueProcessor) {
+    storageQueueProcessor.stop();
+    storageQueueProcessor = null;
+  }
   timeReportProvider = null;
   storage = null;
   git = null;
@@ -121,11 +127,19 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     await git.initialize();
 
     // Start batch processor
-    batchProcessor = new BatchProcessor(config, storage, git, outputChannel);
+    batchProcessor = new BatchProcessor(config, storage, outputChannel);
     batchProcessor.start();
 
+    // Start storage queue processor
+    storageQueueProcessor = new StorageQueueProcessor(
+      config,
+      git,
+      outputChannel,
+    );
+    storageQueueProcessor.start();
+
     // Create time report provider
-    timeReportProvider = new TimeReportProvider(config, git, outputChannel);
+    timeReportProvider = new TimeReportProvider(config, outputChannel);
 
     isEnabled = true;
     return true;

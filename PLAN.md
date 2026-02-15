@@ -57,6 +57,7 @@ COFT_ROOT - The root directory
 COFT_QUEUE - Subdir of COFT_ROOT
 COFT_QUEUE_BATCH - Subdir of COFT_ROOT
 COFT_QUEUE_BACKUP - Subdir of COFT_ROOT
+COFT_SAVE_QUEUE - subdir of COFT_ROOT
 COFT_DATA - Subdir of COFT_ROOT
 COFT_BACKUP - Subdir of COFT_ROOT
 COFT_INTERVAL_SECONDS - How often the batch logic shall execute, default value: 60
@@ -188,7 +189,7 @@ Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the br
 ## VS Code Commands
 
 ✅ **Implemented** - Command available in command palette
-✅ Command to run the house keeping routine. Call it backup
+[ ] Command to run the house keeping routing. Call it backup
 
 ### Show time report
 
@@ -268,15 +269,14 @@ Group them by:
 
 ### Backup
 
-✅ Use a git bare repo in the COFT_BACKUP.
-✅ Add COFT_BACKUP as origin for COFT_DATA
-✅ If backup bare repo is broken, rename with timestamp suffix and reinitialize
+Use a git bare repo in the COFT_BACKUP.
+Add COFT_BACKUP as origin for COFT_DATA
 
 ### House keeping
 
-✅ After first commit each day do this (check git history if it's the first):
-1. ✅ git gc in COFT_DATA
-2. ✅ git push to COFT_BACKUP
+After first commit each day do this (check git history if it's the first):
+1. git gc in COFT_DATA
+2. git push to COFT_BACKUP
 
 
 

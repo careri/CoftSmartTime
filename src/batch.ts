@@ -3,13 +3,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
 import { StorageManager, BatchEntry } from "./storage";
-import { GitManager } from "./git";
+import { StorageQueueWriter } from "./storageQueue";
 import { FileLock } from "./lock";
 
 export class BatchProcessor {
   private config: CoftConfig;
   private storage: StorageManager;
-  private git: GitManager;
   private lock: FileLock;
   private outputChannel: vscode.OutputChannel;
   private timer: NodeJS.Timeout | null = null;
@@ -19,12 +18,10 @@ export class BatchProcessor {
   constructor(
     config: CoftConfig,
     storage: StorageManager,
-    git: GitManager,
     outputChannel: vscode.OutputChannel,
   ) {
     this.config = config;
     this.storage = storage;
-    this.git = git;
     this.lock = new FileLock(this.config.data, outputChannel);
     this.outputChannel = outputChannel;
   }
@@ -71,9 +68,6 @@ export class BatchProcessor {
         this.outputChannel.appendLine("Generating batch entry...");
         try {
           await this.generateBatchEntry();
-
-          this.outputChannel.appendLine("Creating git commit...");
-          await this.git.commit();
 
           this.outputChannel.appendLine("Deleting batch files...");
           await this.storage.deleteBatchFiles();
@@ -147,13 +141,17 @@ export class BatchProcessor {
       });
     }
 
-    // Write batch file with random suffix to prevent collisions
+    // Write batch via storage queue instead of directly to git repo
     const timestamp = Date.now();
     const suffix = Math.random().toString(36).substring(2, 8);
     const batchFilename = `batch_${timestamp}_${suffix}.json`;
-    const batchPath = path.join(this.config.data, "batches", batchFilename);
+    const batchFile = path.join("batches", batchFilename);
 
-    await fs.writeFile(batchPath, JSON.stringify(grouped, null, 2), "utf-8");
-    this.outputChannel.appendLine(`Batch entry created: ${batchFilename}`);
+    await StorageQueueWriter.write(
+      this.config,
+      { type: "timebatch", file: batchFile, body: grouped },
+      this.outputChannel,
+    );
+    this.outputChannel.appendLine(`Batch entry queued: ${batchFilename}`);
   }
 }

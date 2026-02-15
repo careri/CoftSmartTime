@@ -20,6 +20,8 @@ suite("Git Test Suite", () => {
       queue: path.join(testRoot, "queue"),
       queueBatch: path.join(testRoot, "queue_batch"),
       queueBackup: path.join(testRoot, "queue_backup"),
+      storageQueue: path.join(testRoot, "storage_queue"),
+      storageQueueBackup: path.join(testRoot, "storage_queue_backup"),
       data: path.join(testRoot, "data"),
       backup: path.join(testRoot, "backup"),
       intervalSeconds: 60,

@@ -2,8 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { CoftConfig } from "./config";
-import { GitManager } from "./git";
-import { FileLock } from "./lock";
+import { StorageQueueWriter } from "./storageQueue";
 
 interface TimeEntry {
   key: string;
@@ -74,21 +73,14 @@ interface OverviewData {
 
 export class TimeReportProvider {
   private config: CoftConfig;
-  private git: GitManager;
-  private lock: FileLock;
+  private lock: null = null;
   private outputChannel: vscode.OutputChannel;
   private currentDate: Date;
   private panel: vscode.WebviewPanel | null = null;
   private defaultBranchProjects: { [compositeKey: string]: string } = {};
 
-  constructor(
-    config: CoftConfig,
-    git: GitManager,
-    outputChannel: vscode.OutputChannel,
-  ) {
+  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
-    this.git = git;
-    this.lock = new FileLock(config.data, outputChannel);
     this.outputChannel = outputChannel;
     this.currentDate = new Date();
   }
@@ -705,6 +697,21 @@ export class TimeReportProvider {
     return `${hours}:${minutesStr}`;
   }
 
+  private buildSavedReport(reportData: TimeReport): SavedTimeReport {
+    return {
+      date: reportData.date,
+      startOfDay: reportData.startOfDay || undefined,
+      endOfDay: reportData.endOfDay || undefined,
+      entries: reportData.entries.map((entry) => ({
+        key: entry.key,
+        branch: entry.branch,
+        directory: entry.directory,
+        comment: entry.comment,
+        project: entry.project,
+      })),
+    };
+  }
+
   private async saveReportToFile(reportData: TimeReport): Promise<void> {
     const year = this.currentDate.getFullYear();
     const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
@@ -743,14 +750,6 @@ export class TimeReportProvider {
   }
 
   private async saveReport(reportData: TimeReport): Promise<void> {
-    const lockAcquired = await this.lock.acquire(1000);
-    if (!lockAcquired) {
-      vscode.window.showErrorMessage(
-        "Could not save report: failed to acquire lock",
-      );
-      return;
-    }
-
     try {
       await this.saveReportToFile(reportData);
 
@@ -781,14 +780,39 @@ export class TimeReportProvider {
         await this.saveProjects(projects);
       }
 
-      await this.git.commit("report");
+      // Queue git commit via storage queue instead of committing directly
+      const year = this.currentDate.getFullYear();
+      const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
+      const day = String(this.currentDate.getDate()).padStart(2, "0");
+      const reportFile = path.join(
+        "reports",
+        String(year),
+        month,
+        `${day}.json`,
+      );
+
+      await StorageQueueWriter.write(
+        this.config,
+        {
+          type: "timereport",
+          file: reportFile,
+          body: this.buildSavedReport(reportData),
+        },
+        this.outputChannel,
+      );
+
+      if (projectsChanged) {
+        await StorageQueueWriter.write(
+          this.config,
+          { type: "projects", file: "projects.json", body: projects },
+          this.outputChannel,
+        );
+      }
 
       vscode.window.showInformationMessage("Time report saved successfully");
     } catch (error) {
       this.outputChannel.appendLine(`Error saving time report: ${error}`);
       vscode.window.showErrorMessage(`Failed to save time report: ${error}`);
-    } finally {
-      await this.lock.release();
     }
   }
 
