@@ -78,11 +78,28 @@ export class TimeReportProvider {
   private currentDate: Date;
   private panel: vscode.WebviewPanel | null = null;
   private defaultBranchProjects: { [compositeKey: string]: string } = {};
+  private viewModel: TimeReport | null = null;
+  private viewModelDate: string | null = null;
+  private processedBatchFiles: Set<string> = new Set();
+  private cachedProjects: ProjectMap | null = null;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
     this.outputChannel = outputChannel;
     this.currentDate = new Date();
+  }
+
+  private getDateString(): string {
+    const year = this.currentDate.getFullYear();
+    const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
+    const day = String(this.currentDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  resetViewModel(): void {
+    this.viewModel = null;
+    this.viewModelDate = null;
+    this.processedBatchFiles = new Set();
   }
 
   async show(context: vscode.ExtensionContext): Promise<void> {
@@ -120,14 +137,17 @@ export class TimeReportProvider {
     switch (message.command) {
       case "nextDay":
         this.currentDate.setDate(this.currentDate.getDate() + 1);
+        this.resetViewModel();
         await this.updateView();
         break;
       case "previousDay":
         this.currentDate.setDate(this.currentDate.getDate() - 1);
+        this.resetViewModel();
         await this.updateView();
         break;
       case "today":
         this.currentDate = new Date();
+        this.resetViewModel();
         await this.updateView();
         break;
       case "save":
@@ -187,6 +207,20 @@ export class TimeReportProvider {
   }
 
   private async loadTimeReport(): Promise<TimeReport> {
+    const dateStr = this.getDateString();
+
+    // Use cached view model if available for the same date
+    if (this.viewModel !== null && this.viewModelDate === dateStr) {
+      await this.mergeBatchesIntoReport(
+        this.viewModel,
+        this.processedBatchFiles,
+      );
+      return this.viewModel;
+    }
+
+    // Full load - reset processed batch files
+    this.processedBatchFiles = new Set();
+
     const year = this.currentDate.getFullYear();
     const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
     const day = String(this.currentDate.getDate()).padStart(2, "0");
@@ -256,11 +290,17 @@ export class TimeReportProvider {
     }
 
     report.entries.sort((a, b) => a.key.localeCompare(b.key));
+
+    // Cache the loaded report as the view model
+    this.viewModel = report;
+    this.viewModelDate = dateStr;
+
     return report;
   }
 
   private async mergeBatchesIntoReport(
     report: TimeReport,
+    processedFiles?: Set<string>,
   ): Promise<TimeReport> {
     const batchesDir = path.join(this.config.data, "batches");
 
@@ -273,6 +313,9 @@ export class TimeReportProvider {
 
       // Filter batch files by timestamp in filename to avoid reading all files
       const relevantFiles = allFiles.filter((file) => {
+        if (processedFiles && processedFiles.has(file)) {
+          return false;
+        }
         const match = file.match(/^batch_(\d+)/);
         if (!match) {
           return false;
@@ -283,6 +326,13 @@ export class TimeReportProvider {
           fileTimestamp <= endOfDay.getTime()
         );
       });
+
+      // Track processed files to avoid reprocessing on incremental merges
+      if (processedFiles) {
+        for (const file of relevantFiles) {
+          processedFiles.add(file);
+        }
+      }
 
       for (const file of relevantFiles) {
         const filePath = path.join(batchesDir, file);
@@ -346,38 +396,48 @@ export class TimeReportProvider {
   }
 
   async loadProjects(): Promise<ProjectMap> {
+    if (this.cachedProjects !== null) {
+      return this.cachedProjects;
+    }
     const projectsPath = path.join(this.config.data, "projects.json");
+    let result: ProjectMap = {};
     try {
       const content = await fs.readFile(projectsPath, "utf-8");
       const parsed = JSON.parse(content);
       // Validate new format: { branch: { directory: project }, _unbound: [...] }
-      if (typeof parsed !== "object" || parsed === null) {
-        return {};
-      }
-      for (const key of Object.keys(parsed)) {
-        if (key === "_unbound") {
-          if (!Array.isArray(parsed[key])) {
-            this.outputChannel.appendLine(
-              "projects.json _unbound is not an array, ignoring",
-            );
-            delete parsed[key];
+      if (typeof parsed === "object" && parsed !== null) {
+        let valid = true;
+        for (const key of Object.keys(parsed)) {
+          if (key === "_unbound") {
+            if (!Array.isArray(parsed[key])) {
+              this.outputChannel.appendLine(
+                "projects.json _unbound is not an array, ignoring",
+              );
+              delete parsed[key];
+            }
+            continue;
           }
-          continue;
+          if (typeof parsed[key] !== "object" || parsed[key] === null) {
+            this.outputChannel.appendLine(
+              "projects.json has unexpected format, treating as empty",
+            );
+            valid = false;
+            break;
+          }
         }
-        if (typeof parsed[key] !== "object" || parsed[key] === null) {
-          this.outputChannel.appendLine(
-            "projects.json has unexpected format, treating as empty",
-          );
-          return {};
+        if (valid) {
+          result = parsed;
         }
       }
-      return parsed;
     } catch {
-      return {};
+      // No projects file or invalid JSON
     }
+    this.cachedProjects = result;
+    return result;
   }
 
   private async saveProjects(projects: ProjectMap): Promise<void> {
+    this.cachedProjects = projects;
     await OperationQueueWriter.write(
       this.config,
       { type: "projects", file: "projects.json", body: projects },
@@ -711,6 +771,10 @@ export class TimeReportProvider {
   }
 
   private async saveReportToFile(reportData: TimeReport): Promise<void> {
+    // Update the in-memory view model immediately
+    this.viewModel = reportData;
+    this.viewModelDate = this.getDateString();
+
     const year = this.currentDate.getFullYear();
     const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
     const day = String(this.currentDate.getDate()).padStart(2, "0");

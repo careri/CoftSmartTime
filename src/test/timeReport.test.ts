@@ -892,4 +892,242 @@ suite("TimeReport Test Suite", () => {
     const result = (provider as any).formatTotalWorkedHours(overview);
     assert.strictEqual(result, "Total: 2h 0m");
   });
+
+  test("loadTimeReport caches result as view model", async () => {
+    // Create a batch file for today
+    const now = new Date();
+    const timestamp = now.getTime();
+    const batchData = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp }],
+      },
+    };
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batchFile = `batch_${timestamp}_abc123.json`;
+    await fs.writeFile(
+      path.join(batchesDir, batchFile),
+      JSON.stringify(batchData),
+      "utf-8",
+    );
+
+    // Set provider's currentDate to now
+    (provider as any).currentDate = now;
+
+    // First load should populate the view model
+    const report1 = await (provider as any).loadTimeReport();
+    assert.ok(report1.entries.length > 0);
+    assert.strictEqual((provider as any).viewModel, report1);
+    assert.strictEqual(
+      (provider as any).viewModelDate,
+      (provider as any).getDateString(),
+    );
+  });
+
+  test("loadTimeReport returns cached view model on subsequent calls", async () => {
+    const now = new Date();
+    const timestamp = now.getTime();
+    const batchData = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp }],
+      },
+    };
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batchFile = `batch_${timestamp}_abc123.json`;
+    await fs.writeFile(
+      path.join(batchesDir, batchFile),
+      JSON.stringify(batchData),
+      "utf-8",
+    );
+
+    (provider as any).currentDate = now;
+
+    const report1 = await (provider as any).loadTimeReport();
+    const report2 = await (provider as any).loadTimeReport();
+
+    // Should return the same cached object
+    assert.strictEqual(report1, report2);
+  });
+
+  test("saveReportToFile updates the view model immediately", async () => {
+    const now = new Date();
+    (provider as any).currentDate = now;
+
+    const reportData = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now.getTime() }],
+          comment: "test comment",
+          project: "TestProject",
+          assignedBranch: "feature",
+        },
+      ],
+      startOfDay: "09:00",
+      endOfDay: "10:00",
+    };
+
+    await (provider as any).saveReportToFile(reportData);
+
+    // View model should be updated
+    assert.strictEqual((provider as any).viewModel, reportData);
+    assert.strictEqual(
+      (provider as any).viewModelDate,
+      (provider as any).getDateString(),
+    );
+
+    // Subsequent loadTimeReport should return the cached data (not stale disk data)
+    const loaded = await (provider as any).loadTimeReport();
+    assert.strictEqual(loaded, reportData);
+    assert.strictEqual(loaded.entries[0].comment, "test comment");
+  });
+
+  test("view model merges new batch files incrementally", async () => {
+    const now = new Date();
+    const timestamp1 = now.getTime();
+    (provider as any).currentDate = now;
+
+    // Create first batch file
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batch1 = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp1 }],
+      },
+    };
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${timestamp1}_first.json`),
+      JSON.stringify(batch1),
+      "utf-8",
+    );
+
+    // First load
+    const report1 = await (provider as any).loadTimeReport();
+    const initialEntryCount = report1.entries.length;
+    assert.ok(initialEntryCount > 0);
+
+    // Create second batch file with a new time slot
+    const timestamp2 = timestamp1 + 3600000; // 1 hour later
+    const laterDate = new Date(timestamp2);
+    // Only add if still same day
+    if (laterDate.getDate() === now.getDate()) {
+      const batch2 = {
+        develop: {
+          "/other": [{ File: "b.ts", Timestamp: timestamp2 }],
+        },
+      };
+      await fs.writeFile(
+        path.join(batchesDir, `batch_${timestamp2}_second.json`),
+        JSON.stringify(batch2),
+        "utf-8",
+      );
+
+      // Second load should merge the new batch
+      const report2 = await (provider as any).loadTimeReport();
+      assert.strictEqual(report1, report2); // Same cached object
+      assert.ok(report2.entries.length > initialEntryCount);
+
+      // Verify the new entry was merged
+      const newEntry = report2.entries.find(
+        (e: any) => e.branch === "develop" && e.directory === "/other",
+      );
+      assert.ok(newEntry, "New batch entry should be merged into view model");
+    }
+  });
+
+  test("resetViewModel clears cached data", async () => {
+    const now = new Date();
+    const timestamp = now.getTime();
+    (provider as any).currentDate = now;
+
+    // Create batch and load to populate cache
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batchData = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp }],
+      },
+    };
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${timestamp}_abc.json`),
+      JSON.stringify(batchData),
+      "utf-8",
+    );
+
+    await (provider as any).loadTimeReport();
+    assert.ok((provider as any).viewModel !== null);
+
+    // Reset should clear the cache
+    provider.resetViewModel();
+    assert.strictEqual((provider as any).viewModel, null);
+    assert.strictEqual((provider as any).viewModelDate, null);
+    assert.strictEqual((provider as any).processedBatchFiles.size, 0);
+  });
+
+  test("loadProjects caches result", async () => {
+    const projectsPath = path.join(testConfig.data, "projects.json");
+    const projectData = {
+      feature: { "/workspace": "Alpha" },
+    };
+    await fs.writeFile(projectsPath, JSON.stringify(projectData), "utf-8");
+
+    const projects1 = await provider.loadProjects();
+    assert.strictEqual(projects1["feature"]["/workspace"], "Alpha");
+
+    // Modify the file on disk
+    const updatedData = {
+      feature: { "/workspace": "Beta" },
+    };
+    await fs.writeFile(projectsPath, JSON.stringify(updatedData), "utf-8");
+
+    // Should return cached version, not re-read from disk
+    const projects2 = await provider.loadProjects();
+    assert.strictEqual(projects2, projects1);
+    assert.strictEqual(projects2["feature"]["/workspace"], "Alpha");
+  });
+
+  test("saveProjects updates the projects cache", async () => {
+    // First load to populate cache
+    const projects1 = await provider.loadProjects();
+    assert.deepStrictEqual(projects1, {});
+
+    // Save new projects
+    const newProjects = {
+      feature: { "/workspace": "Gamma" },
+    };
+    await (provider as any).saveProjects(newProjects);
+
+    // loadProjects should return the cached version from saveProjects
+    const projects2 = await provider.loadProjects();
+    assert.strictEqual(projects2, newProjects);
+    assert.strictEqual(projects2["feature"]["/workspace"], "Gamma");
+  });
+
+  test("processedBatchFiles prevents double-processing of batch files", async () => {
+    const now = new Date();
+    const timestamp = now.getTime();
+    (provider as any).currentDate = now;
+
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batchData = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp }],
+      },
+    };
+    const batchFile = `batch_${timestamp}_test.json`;
+    await fs.writeFile(
+      path.join(batchesDir, batchFile),
+      JSON.stringify(batchData),
+      "utf-8",
+    );
+
+    // First load processes the batch
+    const report1 = await (provider as any).loadTimeReport();
+    const entryCount = report1.entries.length;
+
+    // Second load should not re-process the same batch (no duplicate entries)
+    const report2 = await (provider as any).loadTimeReport();
+    assert.strictEqual(report2.entries.length, entryCount);
+  });
 });
