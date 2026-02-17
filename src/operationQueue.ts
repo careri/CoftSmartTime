@@ -164,6 +164,10 @@ export class OperationQueueProcessor {
       } else if (request.type === "housekeeping") {
         const firstToday = await this.git.isFirstCommitToday();
         if (firstToday) {
+          const result = await this.storage.collectBatches();
+          if (result.collected) {
+            await this.git.commit("housekeeping: batch collection");
+          }
           await this.git.housekeeping();
         } else {
           this.outputChannel.appendLine(

@@ -293,7 +293,6 @@ Group them by:
 
 ## Next Steps
 
-- Test the extension in real-world usage
 - Consider adding filtering/search in time report view
 - Consider adding statistics/summary views
 

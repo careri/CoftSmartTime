@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { StorageManager, QueueEntry } from "../storage";
+import { StorageManager, QueueEntry, BatchEntry } from "../storage";
 import { GitManager } from "../git";
 import { CoftConfig } from "../config";
 
@@ -130,5 +130,230 @@ suite("Batch Test Suite", () => {
       files[0].length < 100,
       `Filename length ${files[0].length} should be short`,
     );
+  });
+
+  test("collectBatches should collect old batch files into date hierarchy", async () => {
+    const batchesDir = path.join(testConfig.data, "batches");
+
+    // Create batch files with timestamps from yesterday
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayTimestamp = yesterday.getTime();
+
+    const batch1: BatchEntry = {
+      main: {
+        "/workspace/project1": [
+          { File: "src/app.ts", Timestamp: yesterdayTimestamp },
+        ],
+      },
+    };
+    const batch2: BatchEntry = {
+      main: {
+        "/workspace/project1": [
+          { File: "src/util.ts", Timestamp: yesterdayTimestamp + 1000 },
+        ],
+      },
+    };
+
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${yesterdayTimestamp}_abc123.json`),
+      JSON.stringify(batch1, null, 2),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${yesterdayTimestamp + 1000}_def456.json`),
+      JSON.stringify(batch2, null, 2),
+      "utf-8",
+    );
+
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, true);
+    assert.strictEqual(result.filesProcessed, 2);
+
+    // Verify root files are deleted
+    const rootFiles = (await fs.readdir(batchesDir)).filter((f) =>
+      f.endsWith(".json"),
+    );
+    assert.strictEqual(rootFiles.length, 0);
+
+    // Verify hierarchical file exists
+    const year = String(yesterday.getUTCFullYear());
+    const month = String(yesterday.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(yesterday.getUTCDate()).padStart(2, "0");
+    const hierarchicalPath = path.join(batchesDir, year, month, `${day}.json`);
+    const content = await fs.readFile(hierarchicalPath, "utf-8");
+    const merged: BatchEntry = JSON.parse(content);
+
+    // Should have both files merged under main/project1
+    assert.strictEqual(merged["main"]["/workspace/project1"].length, 2);
+  });
+
+  test("collectBatches should not collect today's batch files", async () => {
+    const batchesDir = path.join(testConfig.data, "batches");
+
+    // Create a batch file with today's timestamp
+    const now = Date.now();
+    const batch: BatchEntry = {
+      main: {
+        "/workspace/project1": [{ File: "src/app.ts", Timestamp: now }],
+      },
+    };
+
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${now}_abc123.json`),
+      JSON.stringify(batch, null, 2),
+      "utf-8",
+    );
+
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, false);
+    assert.strictEqual(result.filesProcessed, 0);
+
+    // Root file should still exist
+    const rootFiles = (await fs.readdir(batchesDir)).filter((f) =>
+      f.endsWith(".json"),
+    );
+    assert.strictEqual(rootFiles.length, 1);
+  });
+
+  test("collectBatches should return false when no batch files exist", async () => {
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, false);
+    assert.strictEqual(result.filesProcessed, 0);
+  });
+
+  test("collectBatches should group by UTC date across multiple days", async () => {
+    const batchesDir = path.join(testConfig.data, "batches");
+
+    // Create batch files from two different past days
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setUTCDate(twoDaysAgo.getUTCDate() - 2);
+    const twoDaysAgoTimestamp = twoDaysAgo.getTime();
+
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setUTCDate(threeDaysAgo.getUTCDate() - 3);
+    const threeDaysAgoTimestamp = threeDaysAgo.getTime();
+
+    const batch1: BatchEntry = {
+      main: {
+        "/workspace/project1": [
+          { File: "src/a.ts", Timestamp: twoDaysAgoTimestamp },
+        ],
+      },
+    };
+    const batch2: BatchEntry = {
+      develop: {
+        "/workspace/project2": [
+          { File: "src/b.ts", Timestamp: threeDaysAgoTimestamp },
+        ],
+      },
+    };
+
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${twoDaysAgoTimestamp}_aaa111.json`),
+      JSON.stringify(batch1, null, 2),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${threeDaysAgoTimestamp}_bbb222.json`),
+      JSON.stringify(batch2, null, 2),
+      "utf-8",
+    );
+
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, true);
+    assert.strictEqual(result.filesProcessed, 2);
+
+    // Verify two separate hierarchical files were created
+    const year2 = String(twoDaysAgo.getUTCFullYear());
+    const month2 = String(twoDaysAgo.getUTCMonth() + 1).padStart(2, "0");
+    const day2 = String(twoDaysAgo.getUTCDate()).padStart(2, "0");
+    const path2 = path.join(batchesDir, year2, month2, `${day2}.json`);
+
+    const year3 = String(threeDaysAgo.getUTCFullYear());
+    const month3 = String(threeDaysAgo.getUTCMonth() + 1).padStart(2, "0");
+    const day3 = String(threeDaysAgo.getUTCDate()).padStart(2, "0");
+    const path3 = path.join(batchesDir, year3, month3, `${day3}.json`);
+
+    const content2 = await fs.readFile(path2, "utf-8");
+    const merged2: BatchEntry = JSON.parse(content2);
+    assert.strictEqual(merged2["main"]["/workspace/project1"].length, 1);
+
+    const content3 = await fs.readFile(path3, "utf-8");
+    const merged3: BatchEntry = JSON.parse(content3);
+    assert.strictEqual(merged3["develop"]["/workspace/project2"].length, 1);
+  });
+
+  test("collectBatches should merge with existing hierarchical file", async () => {
+    const batchesDir = path.join(testConfig.data, "batches");
+
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayTimestamp = yesterday.getTime();
+
+    const year = String(yesterday.getUTCFullYear());
+    const month = String(yesterday.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(yesterday.getUTCDate()).padStart(2, "0");
+
+    // Create an existing hierarchical file
+    const targetDir = path.join(batchesDir, year, month);
+    await fs.mkdir(targetDir, { recursive: true });
+    const existingBatch: BatchEntry = {
+      main: {
+        "/workspace/project1": [
+          { File: "src/existing.ts", Timestamp: yesterdayTimestamp - 5000 },
+        ],
+      },
+    };
+    await fs.writeFile(
+      path.join(targetDir, `${day}.json`),
+      JSON.stringify(existingBatch, null, 2),
+      "utf-8",
+    );
+
+    // Create a new batch file in root
+    const newBatch: BatchEntry = {
+      main: {
+        "/workspace/project1": [
+          { File: "src/new.ts", Timestamp: yesterdayTimestamp },
+        ],
+      },
+    };
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${yesterdayTimestamp}_abc123.json`),
+      JSON.stringify(newBatch, null, 2),
+      "utf-8",
+    );
+
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, true);
+
+    // Verify merged file has both entries
+    const content = await fs.readFile(
+      path.join(targetDir, `${day}.json`),
+      "utf-8",
+    );
+    const merged: BatchEntry = JSON.parse(content);
+    assert.strictEqual(merged["main"]["/workspace/project1"].length, 2);
+  });
+
+  test("collectBatches should skip directories and non-batch files", async () => {
+    const batchesDir = path.join(testConfig.data, "batches");
+
+    // Create a subdirectory (should be skipped)
+    await fs.mkdir(path.join(batchesDir, "2025"), { recursive: true });
+
+    // Create a non-batch json file (should be skipped)
+    await fs.writeFile(path.join(batchesDir, "config.json"), "{}", "utf-8");
+
+    const result = await storage.collectBatches();
+
+    assert.strictEqual(result.collected, false);
+    assert.strictEqual(result.filesProcessed, 0);
   });
 });
