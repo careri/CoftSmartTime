@@ -23,10 +23,15 @@ export interface UpdateProjectsRequest {
   body: any;
 }
 
+export interface HousekeepingRequest {
+  type: "housekeeping";
+}
+
 export type OperationRequest =
   | ProcessBatchRequest
   | WriteTimeReportRequest
-  | UpdateProjectsRequest;
+  | UpdateProjectsRequest
+  | HousekeepingRequest;
 
 export class OperationQueueWriter {
   static async write(
@@ -36,7 +41,9 @@ export class OperationQueueWriter {
   ): Promise<void> {
     const timestamp = Date.now();
     const fileField =
-      request.type === "processBatch" ? "processBatch" : request.file;
+      request.type === "processBatch" || request.type === "housekeeping"
+        ? request.type
+        : request.file;
     const hash = crypto
       .createHash("sha256")
       .update(`${request.type}:${fileField}:${timestamp}`)
@@ -154,6 +161,15 @@ export class OperationQueueProcessor {
 
       if (request.type === "processBatch") {
         await this.processProcessBatch();
+      } else if (request.type === "housekeeping") {
+        const firstToday = await this.git.isFirstCommitToday();
+        if (firstToday) {
+          await this.git.housekeeping();
+        } else {
+          this.outputChannel.appendLine(
+            "Housekeeping already done today, skipping",
+          );
+        }
       } else {
         await this.processFileRequest(request);
       }
@@ -164,6 +180,21 @@ export class OperationQueueProcessor {
       this.outputChannel.appendLine(
         `Operation request processed: ${filename} (${request.type})`,
       );
+
+      // Queue housekeeping after first commit of the day
+      if (request.type !== "housekeeping") {
+        const firstToday = await this.git.isFirstCommitToday();
+        if (firstToday) {
+          this.outputChannel.appendLine(
+            "First commit of the day, queuing housekeeping...",
+          );
+          await OperationQueueWriter.write(
+            this.config,
+            { type: "housekeeping" },
+            this.outputChannel,
+          );
+        }
+      }
     } catch (error) {
       const count = (this.failureCounts.get(filename) || 0) + 1;
       this.failureCounts.set(filename, count);

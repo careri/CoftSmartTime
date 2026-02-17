@@ -4,7 +4,10 @@ import { ConfigManager, CoftConfig } from "./config";
 import { StorageManager } from "./storage";
 import { GitManager } from "./git";
 import { BatchProcessor } from "./batch";
-import { OperationQueueProcessor } from "./operationQueue";
+import {
+  OperationQueueProcessor,
+  OperationQueueWriter,
+} from "./operationQueue";
 import { TimeReportProvider } from "./timeReport";
 
 let outputChannel: vscode.OutputChannel;
@@ -44,11 +47,12 @@ export async function activate(context: vscode.ExtensionContext) {
   const backupDisposable = vscode.commands.registerCommand(
     "coft-smarttime.backup",
     async () => {
-      if (git) {
-        await git.housekeeping();
-      } else {
-        vscode.window.showErrorMessage("COFT SmartTime is not initialized");
-      }
+      const config = new ConfigManager(outputChannel).getConfig();
+      await OperationQueueWriter.write(
+        config,
+        { type: "housekeeping" },
+        outputChannel,
+      );
     },
   );
 

@@ -42,6 +42,15 @@ suite("OperationQueue Test Suite", () => {
     await fs.mkdir(testRoot, { recursive: true });
     testConfig = createTestConfig(testRoot);
     outputChannel = vscode.window.createOutputChannel("OperationQueue Test");
+
+    // Pre-set housekeeping date so processing doesn't auto-queue housekeeping
+    await fs.mkdir(testConfig.data, { recursive: true });
+    const today = new Date().toISOString().split("T")[0];
+    await fs.writeFile(
+      path.join(testConfig.data, ".last-housekeeping"),
+      today,
+      "utf-8",
+    );
   });
 
   teardown(async () => {
@@ -440,6 +449,101 @@ suite("OperationQueue Test Suite", () => {
     await processor.processQueue();
 
     // Operation queue should be empty (request processed even though no batch files)
+    const remaining = await fs.readdir(testConfig.operationQueue);
+    assert.strictEqual(remaining.length, 0);
+  });
+
+  test("OperationQueueProcessor should process HousekeepingRequest", async () => {
+    await fs.mkdir(testConfig.data, { recursive: true });
+    await fs.mkdir(testConfig.backup, { recursive: true });
+    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    await git.initialize();
+    const storage = new StorageManager(testConfig, outputChannel);
+    await storage.initialize();
+
+    // Remove .last-housekeeping so housekeeping actually runs
+    const housekeepingPath = path.join(testConfig.data, ".last-housekeeping");
+    try {
+      await fs.unlink(housekeepingPath);
+    } catch {
+      // May not exist
+    }
+
+    // Create a file and commit so push has something
+    const testFile = path.join(testConfig.data, "test.txt");
+    await fs.writeFile(testFile, "housekeeping via queue", "utf-8");
+    await git.commit("pre-housekeeping commit");
+
+    // Write a HousekeepingRequest
+    await OperationQueueWriter.write(
+      testConfig,
+      { type: "housekeeping" },
+      outputChannel,
+    );
+
+    const processor = new OperationQueueProcessor(
+      testConfig,
+      git,
+      storage,
+      outputChannel,
+    );
+    await processor.processQueue();
+
+    // Operation queue should be empty
+    const remaining = await fs.readdir(testConfig.operationQueue);
+    assert.strictEqual(remaining.length, 0);
+
+    // Housekeeping should have written .last-housekeeping
+    const hkPath = path.join(testConfig.data, ".last-housekeeping");
+    const lastDate = (await fs.readFile(hkPath, "utf-8")).trim();
+    const today = new Date().toISOString().split("T")[0];
+    assert.strictEqual(lastDate, today);
+  });
+
+  test("OperationQueueWriter should write HousekeepingRequest", async () => {
+    await OperationQueueWriter.write(
+      testConfig,
+      { type: "housekeeping" },
+      outputChannel,
+    );
+
+    const files = await fs.readdir(testConfig.operationQueue);
+    assert.strictEqual(files.length, 1);
+
+    const content = await fs.readFile(
+      path.join(testConfig.operationQueue, files[0]),
+      "utf-8",
+    );
+    const parsed = JSON.parse(content);
+    assert.strictEqual(parsed.type, "housekeeping");
+  });
+
+  test("OperationQueueProcessor should skip housekeeping if already done today", async () => {
+    await fs.mkdir(testConfig.data, { recursive: true });
+    await fs.mkdir(testConfig.backup, { recursive: true });
+    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    await git.initialize();
+    const storage = new StorageManager(testConfig, outputChannel);
+    await storage.initialize();
+
+    // .last-housekeeping is already set to today by setup
+
+    // Write a HousekeepingRequest
+    await OperationQueueWriter.write(
+      testConfig,
+      { type: "housekeeping" },
+      outputChannel,
+    );
+
+    const processor = new OperationQueueProcessor(
+      testConfig,
+      git,
+      storage,
+      outputChannel,
+    );
+    await processor.processQueue();
+
+    // Request should still be consumed
     const remaining = await fs.readdir(testConfig.operationQueue);
     assert.strictEqual(remaining.length, 0);
   });

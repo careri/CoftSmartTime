@@ -176,11 +176,12 @@ Batches are stored in COFT_DATA/batches
 - ✅ OperationQueueProcessor runs on a 10s timer.
 - ✅ Acquires a global lock on COFT_DATA before processing any requests.
 - ✅ All storage mutations go through OperationRequests. No direct file writes.
-- ✅ Three request types:
+- ✅ Four request types:
 
 - **ProcessBatchRequest** (`type: "processBatch"`) - Moves queue files to batch, groups them, writes batch entry to COFT_DATA, commits to git, deletes batch files.
 - **WriteTimeReportRequest** (`type: "timereport"`) - Writes a time report file to COFT_DATA, commits to git.
 - **UpdateProjectsRequest** (`type: "projects"`) - Writes projects.json to COFT_DATA, commits to git.
+- **HousekeepingRequest** (`type: "housekeeping"`) - Runs git gc, pushes to backup, exports time reports. Checks `.last-housekeeping` date to skip if already done today.
 
 - ✅ Failed requests are retried up to 5 times, then moved to COFT_OPERATION_QUEUE_BACKUP.
 
@@ -284,7 +285,7 @@ Group them by:
 
 ### House keeping
 
-After first commit each day do this (tracked via `.last-housekeeping` file in COFT_DATA):
+✅ Runs as a HousekeepingRequest through the OperationQueue. Auto-queued after first commit each day (tracked via `.last-housekeeping`). Skipped if already done today (safe with multiple VS Code instances).
 
 1. git gc in COFT_DATA
 2. git push to COFT_BACKUP

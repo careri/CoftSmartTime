@@ -109,15 +109,6 @@ export class GitManager {
       const commitMessage = message || this.extensionVersion;
       await this.execGit(`commit -m "${commitMessage}"`);
       this.outputChannel.appendLine(`Git commit created: ${commitMessage}`);
-
-      // Run housekeeping after first commit of the day
-      const firstToday = await this.isFirstCommitToday();
-      if (firstToday) {
-        this.outputChannel.appendLine(
-          "First commit of the day, running housekeeping...",
-        );
-        await this.housekeeping();
-      }
     } catch (error) {
       this.outputChannel.appendLine(`Error creating git commit: ${error}`);
       throw error;

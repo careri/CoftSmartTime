@@ -199,6 +199,9 @@ suite("Git Test Suite", () => {
     await fs.writeFile(testFile, "backup test", "utf-8");
     await git.commit("test commit");
 
+    // Run housekeeping to push to backup
+    await git.housekeeping();
+
     // Verify backup bare repo has the commit
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
