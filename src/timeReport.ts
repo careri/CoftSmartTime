@@ -16,6 +16,7 @@ interface SavedTimeEntry {
   directory: string;
   comment: string;
   project: string;
+  assignedBranch?: string;
 }
 
 interface SavedTimeReport {
@@ -178,6 +179,11 @@ export class TimeReportProvider {
     const report = await this.loadTimeReport();
     const projects = await this.loadProjects();
     this.assignBranches(report, projects, true);
+    
+    // Save the updated report with refreshed assignedBranch and project values
+    await this.saveReport(report);
+    
+    // Update the view with the refreshed data
     const overview = this.computeOverview(report, projects);
     if (this.panel) {
       this.panel.webview.html = this.getHtmlContent(report, overview, projects);
@@ -285,6 +291,9 @@ export class TimeReportProvider {
         if (savedEntry.project) {
           match.project = savedEntry.project;
         }
+        if (savedEntry.assignedBranch) {
+          match.assignedBranch = savedEntry.assignedBranch;
+        }
       } else {
         // Add manually-created entries (e.g. from copy row) that have no batch data
         report.entries.push({
@@ -295,7 +304,7 @@ export class TimeReportProvider {
           fileDetails: [],
           comment: savedEntry.comment || "",
           project: savedEntry.project || "",
-          assignedBranch: "",
+          assignedBranch: savedEntry.assignedBranch || "",
         });
       }
     }
@@ -483,7 +492,7 @@ export class TimeReportProvider {
     let earliestTimestamp = Infinity;
     let latestTimestamp = -Infinity;
 
-    // Group by composite key: branch + directory
+    // Group by composite key: assignedBranch + directory
     const compositeTimeSlots: {
       [compositeKey: string]: {
         branch: string;
@@ -493,10 +502,12 @@ export class TimeReportProvider {
     } = {};
 
     for (const entry of report.entries) {
-      const compositeKey = `${entry.branch}\0${entry.directory}`;
+      // Use assignedBranch instead of branch for accurate time tracking
+      const branchToUse = entry.assignedBranch || entry.branch;
+      const compositeKey = `${branchToUse}\0${entry.directory}`;
       if (!compositeTimeSlots[compositeKey]) {
         compositeTimeSlots[compositeKey] = {
-          branch: entry.branch,
+          branch: branchToUse,
           directory: entry.directory,
           keys: new Set(),
         };
@@ -680,6 +691,7 @@ export class TimeReportProvider {
         directory: entry.directory,
         comment: entry.comment,
         project: entry.project,
+        assignedBranch: entry.assignedBranch,
       })),
     };
   }
