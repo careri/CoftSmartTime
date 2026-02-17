@@ -167,6 +167,10 @@ export class OperationQueueProcessor {
           const result = await this.storage.collectBatches();
           if (result.collected) {
             await this.git.commit("housekeeping: batch collection");
+          } else {
+            this.outputChannel.appendLine(
+              "No batch entries to collect during housekeeping",
+            );
           }
           await this.git.housekeeping();
         } else {
