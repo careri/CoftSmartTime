@@ -177,12 +177,25 @@ export class TimeReportProvider {
 
   private async refreshProjects(): Promise<void> {
     const report = await this.loadTimeReport();
+
+    // If report was previously saved, ask user for confirmation
+    if (report.hasSavedReport) {
+      const answer = await vscode.window.showWarningMessage(
+        "This will update all assigned branches and projects. Continue?",
+        "Yes",
+        "No",
+      );
+      if (answer !== "Yes") {
+        return;
+      }
+    }
+
     const projects = await this.loadProjects();
     this.assignBranches(report, projects, true);
-    
+
     // Save the updated report with refreshed assignedBranch and project values
     await this.saveReport(report);
-    
+
     // Update the view with the refreshed data
     const overview = this.computeOverview(report, projects);
     if (this.panel) {
@@ -458,10 +471,16 @@ export class TimeReportProvider {
     }
 
     // Set assignedBranch and project on each entry
-    // Only auto-assign projects when no saved report exists
     for (const entry of report.entries) {
-      entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
-      if (forceRefresh || !report.hasSavedReport || !entry.project) {
+      // Always update assignedBranch when forceRefresh is true
+      if (forceRefresh) {
+        entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
+      } else if (!entry.assignedBranch) {
+        entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
+      }
+
+      // Only auto-assign projects when no saved report exists, or project is missing
+      if (!report.hasSavedReport || !entry.project) {
         entry.project = this.lookupProject(
           projects,
           entry.assignedBranch,

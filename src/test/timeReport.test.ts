@@ -355,7 +355,9 @@ suite("TimeReport Test Suite", () => {
 
     provider.assignBranches(report, projects, true);
 
-    assert.strictEqual(report.entries[0].project, "UpdatedProject");
+    // forceRefresh should update assignedBranch but NOT override existing project
+    assert.strictEqual(report.entries[0].project, "OldProject");
+    assert.strictEqual(report.entries[0].assignedBranch, "feature-x");
   });
 
   test("lookupProject returns in-memory project for default branches", () => {
