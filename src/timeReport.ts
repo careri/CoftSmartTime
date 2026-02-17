@@ -443,51 +443,48 @@ export class TimeReportProvider {
     projects: ProjectMap,
     forceRefresh: boolean = false,
   ): void {
-    // Count files per branch per time key
-    const keyBranchFiles: { [key: string]: { [branch: string]: number } } = {};
-
+    // Group entries by time key
+    const keyEntries: { [key: string]: TimeEntry[] } = {};
     for (const entry of report.entries) {
-      if (!keyBranchFiles[entry.key]) {
-        keyBranchFiles[entry.key] = {};
+      if (!keyEntries[entry.key]) {
+        keyEntries[entry.key] = [];
       }
-      if (!keyBranchFiles[entry.key][entry.branch]) {
-        keyBranchFiles[entry.key][entry.branch] = 0;
-      }
-      keyBranchFiles[entry.key][entry.branch] += entry.files.length;
+      keyEntries[entry.key].push(entry);
     }
 
-    // Determine dominant branch per time key
-    const keyAssignedBranch: { [key: string]: string } = {};
-    for (const key of Object.keys(keyBranchFiles)) {
-      let maxFiles = 0;
-      let assignedBranch = "";
-      for (const branch of Object.keys(keyBranchFiles[key])) {
-        if (keyBranchFiles[key][branch] > maxFiles) {
-          maxFiles = keyBranchFiles[key][branch];
-          assignedBranch = branch;
+    // For each time key, select the entry with the most changed files
+    const winningEntries: TimeEntry[] = [];
+    for (const key of Object.keys(keyEntries)) {
+      const entries = keyEntries[key];
+      let winner = entries[0];
+      for (let i = 1; i < entries.length; i++) {
+        if (entries[i].files.length > winner.files.length) {
+          winner = entries[i];
         }
       }
-      keyAssignedBranch[key] = assignedBranch;
-    }
 
-    // Set assignedBranch and project on each entry
-    for (const entry of report.entries) {
-      // Always update assignedBranch when forceRefresh is true
+      // Set assignedBranch based on the winning entry's branch
       if (forceRefresh) {
-        entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
-      } else if (!entry.assignedBranch) {
-        entry.assignedBranch = keyAssignedBranch[entry.key] || entry.branch;
+        winner.assignedBranch = winner.branch;
+      } else if (!winner.assignedBranch) {
+        winner.assignedBranch = winner.branch;
       }
 
       // Only auto-assign projects when no saved report exists, or project is missing
-      if (!report.hasSavedReport || !entry.project) {
-        entry.project = this.lookupProject(
+      if (!report.hasSavedReport || !winner.project) {
+        winner.project = this.lookupProject(
           projects,
-          entry.assignedBranch,
-          entry.directory,
+          winner.assignedBranch,
+          winner.directory,
         );
       }
+
+      winningEntries.push(winner);
     }
+
+    // Replace entries with only the winning entry per time key
+    report.entries = winningEntries;
+    report.entries.sort((a, b) => a.key.localeCompare(b.key));
   }
 
   formatTotalWorkedHours(overview: OverviewData): string {

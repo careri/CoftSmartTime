@@ -163,12 +163,12 @@ suite("TimeReport Test Suite", () => {
     };
     provider.assignBranches(report, projects);
 
-    // Both entries in 09:00 should be assigned to "main" (3 files vs 1)
+    // Only the winning entry for 09:00 should remain (main has 3 files vs 1)
+    assert.strictEqual(report.entries.length, 1);
     assert.strictEqual(report.entries[0].assignedBranch, "main");
-    assert.strictEqual(report.entries[1].assignedBranch, "main");
+    assert.strictEqual(report.entries[0].branch, "main");
     // Project should come from the assigned branch
     assert.strictEqual(report.entries[0].project, "Alpha");
-    assert.strictEqual(report.entries[1].project, "Alpha");
   });
 
   test("assignBranches handles different time slots independently", () => {
@@ -220,15 +220,19 @@ suite("TimeReport Test Suite", () => {
     };
     provider.assignBranches(report, projects);
 
+    // Only the winning entry per time key should remain
+    assert.strictEqual(report.entries.length, 2);
+
     // 09:00: develop wins (2 files vs 1)
+    assert.strictEqual(report.entries[0].key, "09:00");
     assert.strictEqual(report.entries[0].assignedBranch, "develop");
-    assert.strictEqual(report.entries[1].assignedBranch, "develop");
+    assert.strictEqual(report.entries[0].branch, "develop");
     assert.strictEqual(report.entries[0].project, "Beta");
-    assert.strictEqual(report.entries[1].project, "Beta");
 
     // 10:00: main wins (only branch)
-    assert.strictEqual(report.entries[2].assignedBranch, "main");
-    assert.strictEqual(report.entries[2].project, "Alpha");
+    assert.strictEqual(report.entries[1].key, "10:00");
+    assert.strictEqual(report.entries[1].assignedBranch, "main");
+    assert.strictEqual(report.entries[1].project, "Alpha");
   });
 
   test("assignBranches sets empty project when no mapping exists", () => {
@@ -358,6 +362,166 @@ suite("TimeReport Test Suite", () => {
     // forceRefresh should update assignedBranch but NOT override existing project
     assert.strictEqual(report.entries[0].project, "OldProject");
     assert.strictEqual(report.entries[0].assignedBranch, "feature-x");
+  });
+
+  test("assignBranches keeps only winning entry per time key with multiple directories", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projA",
+          files: ["a.ts", "b.ts", "c.ts"],
+          fileDetails: [
+            { file: "a.ts", timestamp: 1000 },
+            { file: "b.ts", timestamp: 1001 },
+            { file: "c.ts", timestamp: 1002 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projB",
+          files: ["x.ts"],
+          fileDetails: [{ file: "x.ts", timestamp: 1003 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, {});
+
+    // Only 1 entry should remain for key 09:00
+    assert.strictEqual(report.entries.length, 1);
+    assert.strictEqual(report.entries[0].directory, "/projA");
+    assert.strictEqual(report.entries[0].branch, "feature");
+    assert.strictEqual(report.entries[0].assignedBranch, "feature");
+  });
+
+  test("assignBranches picks entry with most files across branches and directories", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projA",
+          files: ["a.ts", "b.ts"],
+          fileDetails: [
+            { file: "a.ts", timestamp: 1000 },
+            { file: "b.ts", timestamp: 1001 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "main",
+          directory: "/projB",
+          files: ["x.ts", "y.ts", "z.ts"],
+          fileDetails: [
+            { file: "x.ts", timestamp: 1002 },
+            { file: "y.ts", timestamp: 1003 },
+            { file: "z.ts", timestamp: 1004 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projC",
+          files: ["w.ts"],
+          fileDetails: [{ file: "w.ts", timestamp: 1005 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, {});
+
+    // Only 1 entry: main-/projB wins with 3 files
+    assert.strictEqual(report.entries.length, 1);
+    assert.strictEqual(report.entries[0].branch, "main");
+    assert.strictEqual(report.entries[0].directory, "/projB");
+    assert.strictEqual(report.entries[0].assignedBranch, "main");
+  });
+
+  test("assignBranches deduplication does not affect separate time keys", () => {
+    const report = {
+      date: new Date().toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projA",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: 1000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "09:00",
+          branch: "feature",
+          directory: "/projB",
+          files: ["b.ts", "c.ts"],
+          fileDetails: [
+            { file: "b.ts", timestamp: 1001 },
+            { file: "c.ts", timestamp: 1002 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "10:00",
+          branch: "main",
+          directory: "/projA",
+          files: ["d.ts"],
+          fileDetails: [{ file: "d.ts", timestamp: 2000 }],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+        {
+          key: "10:00",
+          branch: "feature",
+          directory: "/projB",
+          files: ["e.ts", "f.ts", "g.ts"],
+          fileDetails: [
+            { file: "e.ts", timestamp: 2001 },
+            { file: "f.ts", timestamp: 2002 },
+            { file: "g.ts", timestamp: 2003 },
+          ],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, {});
+
+    // 2 entries should remain: one per time key
+    assert.strictEqual(report.entries.length, 2);
+    // 09:00: /projB wins (2 files)
+    assert.strictEqual(report.entries[0].key, "09:00");
+    assert.strictEqual(report.entries[0].directory, "/projB");
+    // 10:00: feature-/projB wins (3 files)
+    assert.strictEqual(report.entries[1].key, "10:00");
+    assert.strictEqual(report.entries[1].branch, "feature");
+    assert.strictEqual(report.entries[1].directory, "/projB");
   });
 
   test("lookupProject returns in-memory project for default branches", () => {
