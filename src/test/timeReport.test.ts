@@ -645,6 +645,156 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(result, "23:45");
   });
 
+  test("hasTimeGap returns true when next entry is not consecutive", () => {
+    const entries = [
+      {
+        key: "09:00",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+      {
+        key: "09:30",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, 0), true);
+  });
+
+  test("hasTimeGap returns false when next entry is consecutive", () => {
+    const entries = [
+      {
+        key: "09:00",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+      {
+        key: "09:15",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, 0), false);
+  });
+
+  test("hasTimeGap returns false for last entry", () => {
+    const entries = [
+      {
+        key: "09:00",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+      {
+        key: "09:15",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, 1), false);
+  });
+
+  test("hasTimeGap returns false for negative index", () => {
+    const entries = [
+      {
+        key: "09:00",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, -1), false);
+  });
+
+  test("hasTimeGap returns false for empty entries", () => {
+    assert.strictEqual(provider.hasTimeGap([], 0), false);
+  });
+
+  test("hasTimeGap detects gap across hour boundary", () => {
+    const entries = [
+      {
+        key: "09:45",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+      {
+        key: "10:15",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, 0), true);
+  });
+
+  test("hasTimeGap returns false for consecutive across hour boundary", () => {
+    const entries = [
+      {
+        key: "09:45",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+      {
+        key: "10:00",
+        branch: "main",
+        directory: "/p",
+        files: [],
+        fileDetails: [],
+        comment: "",
+        project: "",
+        assignedBranch: "",
+      },
+    ];
+    assert.strictEqual(provider.hasTimeGap(entries, 0), false);
+  });
+
   test("computeOverview uses saved startOfDay and endOfDay when present", () => {
     const report = {
       date: new Date().toISOString(),

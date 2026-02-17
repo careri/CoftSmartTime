@@ -687,6 +687,17 @@ export class TimeReportProvider {
     return `${String(newHours).padStart(2, "0")}:${String(newMinutes).padStart(2, "0")}`;
   }
 
+  hasTimeGap(entries: TimeEntry[], index: number): boolean {
+    if (index < 0 || index >= entries.length - 1) {
+      return false;
+    }
+    const expectedNext = this.shiftTimeKey(entries[index].key, 1);
+    if (expectedNext === null) {
+      return false;
+    }
+    return entries[index + 1].key !== expectedNext;
+  }
+
   private getTimeKey(date: Date): string {
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = date.getMinutes();
@@ -855,9 +866,12 @@ export class TimeReportProvider {
       .join("");
 
     const entriesHtml = report.entries
-      .map(
-        (entry, index) => `
-            <tr class="entry-row" data-index="${index}">
+      .map((entry, index) => {
+        const gapClass = this.hasTimeGap(report.entries, index)
+          ? " time-gap"
+          : "";
+        return `
+            <tr class="entry-row${gapClass}" data-index="${index}">
                 <td class="row-buttons-cell">
                     <button class="row-btn copy-above-btn" data-index="${index}" title="Copy above">&#9650;</button>
                     <button class="row-btn copy-below-btn" data-index="${index}" title="Copy below">&#9660;</button>
@@ -869,8 +883,8 @@ export class TimeReportProvider {
                 <td class="project-cell">${this.escapeHtml(entry.project)}</td>
                 <td class="assigned-branch-cell">${this.escapeHtml(entry.assignedBranch)}</td>
             </tr>
-        `,
-      )
+        `;
+      })
       .join("");
 
     return `<!DOCTYPE html>
@@ -1038,6 +1052,12 @@ export class TimeReportProvider {
                 }
                 .row-btn:hover {
                     background-color: var(--vscode-button-secondaryHoverBackground);
+                }
+                .time-gap {
+                    background-color: rgba(255, 165, 0, 0.3);
+                }
+                .time-gap:hover {
+                    background-color: rgba(255, 165, 0, 0.45);
                 }
                 .day-range-input {
                     width: 120px;

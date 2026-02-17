@@ -252,6 +252,7 @@ Batches are stored in COFT_DATA/batches
 - ✅ Show a view of the files that were changed today. each line is a TIME_SLOT
 - ✅ Assign the TIME_SLOT to the branch with most changed files
 - ✅ Show the info for the assigned branch on the row. including readonly project (should update if changed in the overview)
+- ✅ Highlight timeslot gaps with orange background when a slot is not followed by the next expected time in the series
 
 Group them by:
 
