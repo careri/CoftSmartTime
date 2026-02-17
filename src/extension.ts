@@ -52,6 +52,16 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  // Register save time report command (Ctrl+S when webview focused)
+  const saveReportDisposable = vscode.commands.registerCommand(
+    "coft-smarttime.saveTimeReport",
+    () => {
+      if (timeReportProvider) {
+        timeReportProvider.triggerSave();
+      }
+    },
+  );
+
   // Listen for config changes
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
@@ -67,6 +77,7 @@ export async function activate(context: vscode.ExtensionContext) {
     saveDisposable,
     timeReportDisposable,
     backupDisposable,
+    saveReportDisposable,
     configChangeDisposable,
   );
 

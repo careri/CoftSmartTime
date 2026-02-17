@@ -29,6 +29,18 @@
       {
         "command": "coft-smarttime.backup",
         "title": "COFT: Backup"
+      },
+      {
+        "command": "coft-smarttime.saveTimeReport",
+        "title": "COFT: Save Time Report"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "coft-smarttime.saveTimeReport",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "coftTimeReportFocused"
       }
     ],
     "configuration": {

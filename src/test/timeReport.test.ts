@@ -1130,4 +1130,9 @@ suite("TimeReport Test Suite", () => {
     const report2 = await (provider as any).loadTimeReport();
     assert.strictEqual(report2.entries.length, entryCount);
   });
+
+  test("triggerSave does not throw when panel is null", () => {
+    assert.strictEqual((provider as any).panel, null);
+    assert.doesNotThrow(() => provider.triggerSave());
+  });
 });

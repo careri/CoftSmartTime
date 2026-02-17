@@ -195,6 +195,7 @@ Batches are stored in COFT_DATA/batches
 
 - ✅ **Implemented** - Command available in command palette
 - ✅ Command to run the house keeping routing. Call it backup
+- ✅ Save time report command with Ctrl+S / Cmd+S keybinding when time report has focus
 
 ### Show time report
 
@@ -211,7 +212,7 @@ Batches are stored in COFT_DATA/batches
 ##### Controls
 
 - ✅ Buttons to go back and forward in dates. Show today by default.
-- ✅ Save button. Saves timereport via OperationQueue (WriteTimeReportRequest).
+- ✅ Save button at the top. Saves timereport via OperationQueue (WriteTimeReportRequest).
 - ✅ Button to update projects on branches based on the saved information in projects.json
 
 ##### Date Time

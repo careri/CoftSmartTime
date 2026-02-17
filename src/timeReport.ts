@@ -102,6 +102,12 @@ export class TimeReportProvider {
     this.processedBatchFiles = new Set();
   }
 
+  triggerSave(): void {
+    if (this.panel) {
+      this.panel.webview.postMessage({ command: "triggerSave" });
+    }
+  }
+
   async show(context: vscode.ExtensionContext): Promise<void> {
     if (this.panel) {
       this.panel.reveal();
@@ -120,7 +126,22 @@ export class TimeReportProvider {
 
     this.panel.onDidDispose(() => {
       this.panel = null;
+      vscode.commands.executeCommand(
+        "setContext",
+        "coftTimeReportFocused",
+        false,
+      );
     });
+
+    context.subscriptions.push(
+      this.panel.onDidChangeViewState(() => {
+        vscode.commands.executeCommand(
+          "setContext",
+          "coftTimeReportFocused",
+          this.panel !== null && this.panel.active,
+        );
+      }),
+    );
 
     this.panel.webview.onDidReceiveMessage(
       async (message) => {
@@ -997,7 +1018,6 @@ export class TimeReportProvider {
                     box-sizing: border-box;
                 }
                 .save-button {
-                    margin-top: 20px;
                     background-color: var(--vscode-button-background);
                 }
                 .entry-row {
@@ -1116,6 +1136,7 @@ export class TimeReportProvider {
             <div class="header">
                 <h1>${this.escapeHtml(dateStr)}</h1>
                 <div class="navigation">
+                    <button class="save-button" id="saveBtn">Save Report</button>
                     <button id="refreshProjectsBtn" title="Re-apply project mappings from projects.json">&#8635; Update Projects</button>
                     <button id="prevDay">&#8592; Previous</button>
                     <button id="today">Today</button>
@@ -1163,8 +1184,6 @@ export class TimeReportProvider {
                 </tbody>
             </table>
             
-            <button class="save-button" id="saveBtn">Save Report</button>
-            
             <div id="detailSection" style="display:none;">
                 <h3 id="detailTitle">Batch Items</h3>
                 <table>
@@ -1195,6 +1214,8 @@ export class TimeReportProvider {
                         currentProjects = message.projects || {};
                         currentStartOfDay = message.overview.startOfDay || '';
                         currentEndOfDay = message.overview.endOfDay || '';
+                    } else if (message.command === 'triggerSave') {
+                        performSave();
                     }
                 });
                 
@@ -1300,7 +1321,7 @@ export class TimeReportProvider {
                     });
                 });
                 
-                document.getElementById('saveBtn').addEventListener('click', () => {
+                function performSave() {
                     document.querySelectorAll('.comment-field').forEach(input => {
                         const index = parseInt(input.dataset.index);
                         currentEntries[index].comment = input.value;
@@ -1330,6 +1351,10 @@ export class TimeReportProvider {
                             endOfDay: document.getElementById('endOfDay').value.trim()
                         }
                     });
+                }
+
+                document.getElementById('saveBtn').addEventListener('click', () => {
+                    performSave();
                 });
 
                 document.querySelectorAll('.entry-row').forEach(row => {
