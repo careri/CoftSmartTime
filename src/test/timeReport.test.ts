@@ -28,6 +28,8 @@ suite("TimeReport Test Suite", () => {
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",
+      exportDir: "",
+      exportAgeDays: 90,
     };
 
     await fs.mkdir(testConfig.queue, { recursive: true });

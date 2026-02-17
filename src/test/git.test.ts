@@ -27,6 +27,8 @@ suite("Git Test Suite", () => {
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",
+      exportDir: "",
+      exportAgeDays: 90,
     };
 
     await fs.mkdir(testConfig.data, { recursive: true });
@@ -305,5 +307,130 @@ suite("Git Test Suite", () => {
       1,
       "Expected one broken backup directory",
     );
+  });
+
+  test("exportTimeReports does nothing when exportDir is empty", async () => {
+    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Should not throw
+    await git.exportTimeReports();
+  });
+
+  test("exportTimeReports copies reports within age range", async () => {
+    const exportDir = path.join(testRoot, "export");
+    const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
+
+    const git = new GitManager(config, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Create a report for today
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    const reportDir = path.join(config.data, "reports", year, month);
+    await fs.mkdir(reportDir, { recursive: true });
+    const reportContent = JSON.stringify({
+      date: `${year}-${month}-${day}`,
+      entries: [],
+    });
+    await fs.writeFile(
+      path.join(reportDir, `${day}.json`),
+      reportContent,
+      "utf-8",
+    );
+
+    await git.exportTimeReports();
+
+    // Verify the file was exported
+    const exportedPath = path.join(exportDir, year, month, `${day}.json`);
+    const stat = await fs.stat(exportedPath);
+    assert.ok(stat.isFile());
+
+    const exportedContent = await fs.readFile(exportedPath, "utf-8");
+    assert.strictEqual(exportedContent, reportContent);
+  });
+
+  test("exportTimeReports skips reports older than exportAgeDays", async () => {
+    const exportDir = path.join(testRoot, "export");
+    const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 10 };
+
+    const git = new GitManager(config, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Create a report for 30 days ago
+    const oldDate = new Date();
+    oldDate.setDate(oldDate.getDate() - 30);
+    const year = String(oldDate.getFullYear());
+    const month = String(oldDate.getMonth() + 1).padStart(2, "0");
+    const day = String(oldDate.getDate()).padStart(2, "0");
+
+    const reportDir = path.join(config.data, "reports", year, month);
+    await fs.mkdir(reportDir, { recursive: true });
+    await fs.writeFile(
+      path.join(reportDir, `${day}.json`),
+      JSON.stringify({ date: `${year}-${month}-${day}`, entries: [] }),
+      "utf-8",
+    );
+
+    await git.exportTimeReports();
+
+    // Verify the file was NOT exported
+    const exportedPath = path.join(exportDir, year, month, `${day}.json`);
+    await assert.rejects(fs.access(exportedPath));
+  });
+
+  test("exportTimeReports skips already exported reports", async () => {
+    const exportDir = path.join(testRoot, "export");
+    const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
+
+    const git = new GitManager(config, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // Create a report for today
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    const reportDir = path.join(config.data, "reports", year, month);
+    await fs.mkdir(reportDir, { recursive: true });
+    await fs.writeFile(
+      path.join(reportDir, `${day}.json`),
+      JSON.stringify({ date: `${year}-${month}-${day}`, entries: [] }),
+      "utf-8",
+    );
+
+    // Pre-create the export file with different content
+    const exportSubDir = path.join(exportDir, year, month);
+    await fs.mkdir(exportSubDir, { recursive: true });
+    const existingContent = "already-exported";
+    await fs.writeFile(
+      path.join(exportSubDir, `${day}.json`),
+      existingContent,
+      "utf-8",
+    );
+
+    await git.exportTimeReports();
+
+    // Verify the existing file was NOT overwritten
+    const exportedContent = await fs.readFile(
+      path.join(exportSubDir, `${day}.json`),
+      "utf-8",
+    );
+    assert.strictEqual(exportedContent, existingContent);
+  });
+
+  test("exportTimeReports handles missing reports directory", async () => {
+    const exportDir = path.join(testRoot, "export");
+    const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
+
+    const git = new GitManager(config, outputChannel, "1.0.0");
+    await git.initialize();
+
+    // No reports directory exists — should not throw
+    await git.exportTimeReports();
   });
 });

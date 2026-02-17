@@ -27,6 +27,8 @@ function createTestConfig(testRoot: string): CoftConfig {
     intervalSeconds: 60,
     viewGroupByMinutes: 15,
     branchTaskUrl: "",
+    exportDir: "",
+    exportAgeDays: 90,
   };
 }
 

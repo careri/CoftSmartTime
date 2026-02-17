@@ -19,6 +19,8 @@ function createTestConfig(testRoot: string): CoftConfig {
     intervalSeconds: 60,
     viewGroupByMinutes: 15,
     branchTaskUrl: "",
+    exportDir: "",
+    exportAgeDays: 90,
   };
 }
 
@@ -86,6 +88,8 @@ suite("Storage Test Suite", () => {
       intervalSeconds: 60,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",
+      exportDir: "",
+      exportAgeDays: 90,
     };
 
     const storage = new StorageManager(autoConfig, outputChannel);

@@ -66,6 +66,8 @@ coft.smarttime should be the id of the extension.
 - COFT_BACKUP - Subdir of COFT_ROOT
 - COFT_INTERVAL_SECONDS - How often the batch logic shall execute, default value: 60
 - COFT_VIEW_GROUP_BY_MINUTES - How the view is grouped, default 15.
+- COFT_EXPORT_DIR - Optional directory path for exporting time reports
+- COFT_EXPORT_AGE_DAYS - How far back in time to export, default 90
 
 ## Storage
 
@@ -190,6 +192,8 @@ Batches are stored in COFT_DATA/batches
 - Configure COFT_INTERVAL_SECONDS, inform the user of valid range 60 to 300
 - Configure COFT_VIEW_GROUP_BY_MINUTES, valid values: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60
 - Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the branch can be injected. E.g. https://ctek-jira.atlassian.net/browse/{branch}
+- Configure COFT_EXPORT_DIR, optional. Must be a valid parsable path. If set, time reports are exported during housekeeping.
+- Configure COFT_EXPORT_AGE_DAYS, optional. Defines how far back in time to export. Default 90.
 
 ## VS Code Commands
 
@@ -284,12 +288,12 @@ After first commit each day do this (tracked via `.last-housekeeping` file in CO
 
 1. git gc in COFT_DATA
 2. git push to COFT_BACKUP
+3. ✅ If COFT_EXPORT_DIR is defined, export all timereports younger than COFT_EXPORT_AGE_DAYS that don't already exist in the export directory
 
 ## Next Steps
 
 - Test the extension in real-world usage
 - Consider adding filtering/search in time report view
-- Add export functionality for reports
 - Consider adding statistics/summary views
 
 ```

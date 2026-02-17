@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -81,6 +81,17 @@
           "type": "string",
           "default": "",
           "description": "Optional URL pattern for linking branches to tasks. Use {branch} as placeholder. E.g. https://ctek-jira.atlassian.net/browse/{branch}"
+        },
+        "coft.smarttime.exportDir": {
+          "type": "string",
+          "default": "",
+          "description": "Optional directory path for exporting time reports. Leave empty to disable export."
+        },
+        "coft.smarttime.exportAgeDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "description": "How far back in time (days) to export time reports. Default 90."
         }
       }
     }

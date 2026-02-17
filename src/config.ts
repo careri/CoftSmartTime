@@ -14,6 +14,8 @@ export interface CoftConfig {
   intervalSeconds: number;
   viewGroupByMinutes: number;
   branchTaskUrl: string;
+  exportDir: string;
+  exportAgeDays: number;
 }
 
 export class ConfigManager {
@@ -66,6 +68,24 @@ export class ConfigManager {
     // Get branch task URL
     const branchTaskUrl = config.get<string>("branchTaskUrl", "");
 
+    // Get export directory
+    let exportDir = config.get<string>("exportDir", "");
+    if (exportDir && !this.isValidPath(exportDir)) {
+      this.outputChannel.appendLine(
+        `Warning: coft.smarttime.exportDir is not a valid path: ${exportDir}. Export disabled.`,
+      );
+      exportDir = "";
+    }
+
+    // Get export age days
+    let exportAgeDays = config.get<number>("exportAgeDays", 90);
+    if (exportAgeDays < 1) {
+      this.outputChannel.appendLine(
+        `Warning: exportAgeDays (${exportAgeDays}) is invalid. Using default value: 90`,
+      );
+      exportAgeDays = 90;
+    }
+
     return {
       root,
       queue: path.join(root, "queue"),
@@ -78,6 +98,8 @@ export class ConfigManager {
       intervalSeconds,
       viewGroupByMinutes,
       branchTaskUrl,
+      exportDir,
+      exportAgeDays,
     };
   }
 

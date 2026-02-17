@@ -10,8 +10,9 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 - **Project Mapping**: Map branches to projects with persistent project assignments
 - **Git Backup**: Daily housekeeping with automatic push to a local bare repo backup
 - **Multi-Instance Safe**: All writes go through a serialized operation queue with file locking
-- **Configurable**: Customize tracking intervals, time grouping, and task URL patterns
+- **Configurable**: Customize tracking intervals, time grouping, task URL patterns, and report export
 - **Dev Container Support**: Runs on the host side, so data persists even when using dev containers
+- **Export**: Automatically export time reports to a separate directory during housekeeping
 
 ## Screenshots
 
@@ -37,6 +38,8 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 - `coft.smarttime.intervalSeconds`: Interval in seconds for batch processing (60-300, default: 60)
 - `coft.smarttime.viewGroupByMinutes`: Time grouping in minutes for time report view (must divide evenly into 60, default: 15)
 - `coft.smarttime.branchTaskUrl`: Optional URL pattern for linking branches to tasks. Use `{branch}` as placeholder (e.g. `https://jira.example.com/browse/{branch}`)
+- `coft.smarttime.exportDir`: Optional directory path for exporting time reports. Leave empty to disable export.
+- `coft.smarttime.exportAgeDays`: How far back in time (days) to export time reports (default: 90)
 
 ## Getting Started
 
@@ -69,13 +72,14 @@ root/
 1. **Save Hook**: Every file save creates an entry in the queue
 2. **Batch Processing**: At configured intervals, queued entries are submitted as an operation request
 3. **Operation Queue**: A processor acquires a file lock, writes data, and commits to git
-4. **Housekeeping**: On the first commit each day, runs `git gc` and pushes to the backup repo
+4. **Housekeeping**: On the first commit each day, runs `git gc`, pushes to the backup repo, and exports time reports if configured
 5. **Time Reports**: View and annotate your work history by day, with project assignments and editable start/end times
 
 ## Commands
 
 - `COFT: Show Time Report`: Open the time report view for the current day
-- `COFT: Backup`: Manually run housekeeping (git gc + push to backup)
+- `COFT: Save Time Report`: Save the current time report (`Ctrl+S` / `Cmd+S` when the time report has focus)
+- `COFT: Backup`: Manually run housekeeping (git gc + push to backup + export)
 
 ## Development
 
