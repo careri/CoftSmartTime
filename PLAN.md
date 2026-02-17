@@ -36,12 +36,14 @@ coft.smarttime should be the id of the extension.
 - `src/lock.ts` - File locking mechanism
 - `src/git.ts` - Git operations
 - `src/batch.ts` - Batch processing (writes ProcessBatchRequest)
+- `src/batchRepository.ts` - Batch file reading and merging operations
 - `src/operationQueue.ts` - OperationRequest types, OperationQueueWriter, OperationQueueProcessor
 - `src/timeReport.ts` - Time report view
 - `src/extension.ts` - Main extension entry point
 - `src/test/config.test.ts` - Configuration tests
 - `src/test/storage.test.ts` - Storage tests
 - `src/test/batch.test.ts` - Batch processing tests
+- `src/test/batchRepository.test.ts` - Batch repository tests
 - `src/test/operationQueue.test.ts` - Operation queue tests
 - `src/test/extension.test.ts` - Extension tests
 - `src/test/git.test.ts` - Git tests

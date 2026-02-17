@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -102,7 +102,7 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "xvfb-run -a npm run test:run",
+    "test": "DISPLAY=:99 xvfb-run -a npm run test:run",
     "test:run": "vscode-test"
   },
   "devDependencies": {

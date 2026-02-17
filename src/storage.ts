@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
+import { BatchRepository } from "./batchRepository";
 
 export interface CollectBatchesResult {
   collected: boolean;
@@ -30,10 +31,12 @@ export interface BatchEntry {
 export class StorageManager {
   private config: CoftConfig;
   private outputChannel: vscode.OutputChannel;
+  private batchRepository: BatchRepository;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
     this.outputChannel = outputChannel;
+    this.batchRepository = new BatchRepository(config, outputChannel);
   }
 
   async initialize(): Promise<boolean> {
@@ -187,148 +190,11 @@ export class StorageManager {
   }
 
   async readBatchFiles(): Promise<QueueEntry[]> {
-    const files = await fs.readdir(this.config.queueBatch);
-    const entries: QueueEntry[] = [];
-
-    for (const file of files) {
-      const filePath = path.join(this.config.queueBatch, file);
-
-      try {
-        const content = await fs.readFile(filePath, "utf-8");
-        entries.push(JSON.parse(content) as QueueEntry);
-      } catch (error) {
-        this.outputChannel.appendLine(
-          `Error reading batch file ${file}: ${error}`,
-        );
-      }
-    }
-
-    return entries;
+    return this.batchRepository.readBatchFiles();
   }
 
   async collectBatches(): Promise<CollectBatchesResult> {
-    const batchesDir = path.join(this.config.data, "batches");
-
-    // Get today's UTC date start
-    const now = new Date();
-    const todayStartUtc = Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-    );
-
-    // Read all entries in root of batches dir
-    let allEntries: string[];
-    try {
-      allEntries = await fs.readdir(batchesDir);
-    } catch {
-      return { collected: false, filesProcessed: 0 };
-    }
-
-    // Filter to batch json files older than today (UTC)
-    const batchFiles: string[] = [];
-    for (const entry of allEntries) {
-      const fullPath = path.join(batchesDir, entry);
-      const stat = await fs.stat(fullPath);
-      if (!stat.isFile() || !entry.endsWith(".json")) {
-        continue;
-      }
-      const match = entry.match(/^batch_(\d+)/);
-      if (!match) {
-        continue;
-      }
-      const timestamp = parseInt(match[1], 10);
-      if (timestamp < todayStartUtc) {
-        batchFiles.push(entry);
-      }
-    }
-
-    if (batchFiles.length === 0) {
-      return { collected: false, filesProcessed: 0 };
-    }
-
-    // Group files by UTC date
-    const grouped: Map<string, string[]> = new Map();
-    for (const file of batchFiles) {
-      const match = file.match(/^batch_(\d+)/);
-      if (!match) {
-        continue;
-      }
-      const timestamp = parseInt(match[1], 10);
-      const date = new Date(timestamp);
-      const year = String(date.getUTCFullYear());
-      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(date.getUTCDate()).padStart(2, "0");
-      const dateKey = `${year}-${month}-${day}`;
-
-      if (!grouped.has(dateKey)) {
-        grouped.set(dateKey, []);
-      }
-      grouped.get(dateKey)!.push(file);
-    }
-
-    // For each date group, merge batch entries and write to year/month/day.json
-    for (const [dateKey, files] of grouped) {
-      const [year, month, day] = dateKey.split("-");
-      const merged: BatchEntry = {};
-
-      for (const file of files) {
-        const filePath = path.join(batchesDir, file);
-        const content = await fs.readFile(filePath, "utf-8");
-        const batch: BatchEntry = JSON.parse(content);
-
-        for (const branch in batch) {
-          if (!merged[branch]) {
-            merged[branch] = {};
-          }
-          for (const directory in batch[branch]) {
-            if (!merged[branch][directory]) {
-              merged[branch][directory] = [];
-            }
-            merged[branch][directory].push(...batch[branch][directory]);
-          }
-        }
-      }
-
-      // If the target file already exists, merge with existing data
-      const targetDir = path.join(batchesDir, year, month);
-      const targetPath = path.join(targetDir, `${day}.json`);
-
-      try {
-        const existing = await fs.readFile(targetPath, "utf-8");
-        const existingBatch: BatchEntry = JSON.parse(existing);
-        for (const branch in existingBatch) {
-          if (!merged[branch]) {
-            merged[branch] = {};
-          }
-          for (const directory in existingBatch[branch]) {
-            if (!merged[branch][directory]) {
-              merged[branch][directory] = [];
-            }
-            merged[branch][directory].push(...existingBatch[branch][directory]);
-          }
-        }
-      } catch {
-        // File doesn't exist yet, no merge needed
-      }
-
-      await fs.mkdir(targetDir, { recursive: true });
-      await fs.writeFile(targetPath, JSON.stringify(merged, null, 2), "utf-8");
-
-      this.outputChannel.appendLine(
-        `Collected ${files.length} batch file(s) into batches/${year}/${month}/${day}.json`,
-      );
-    }
-
-    // Delete processed root files
-    for (const file of batchFiles) {
-      await fs.unlink(path.join(batchesDir, file));
-    }
-
-    this.outputChannel.appendLine(
-      `Batch collection completed: ${batchFiles.length} file(s) processed`,
-    );
-    return { collected: true, filesProcessed: batchFiles.length };
+    return this.batchRepository.collectBatches();
   }
 
   async hasQueueFiles(): Promise<boolean> {

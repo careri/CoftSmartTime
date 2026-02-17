@@ -3,30 +3,12 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { CoftConfig } from "./config";
 import { OperationQueueWriter } from "./operationQueue";
-
-interface TimeEntry {
-  key: string;
-  branch: string;
-  directory: string;
-  files: string[];
-  fileDetails: FileDetail[];
-  comment: string;
-  project: string;
-  assignedBranch: string;
-}
-
-interface FileDetail {
-  file: string;
-  timestamp: number;
-}
-
-interface TimeReport {
-  date: string;
-  entries: TimeEntry[];
-  startOfDay?: string;
-  endOfDay?: string;
-  hasSavedReport?: boolean;
-}
+import {
+  BatchRepository,
+  TimeEntry,
+  TimeReport,
+  FileDetail,
+} from "./batchRepository";
 
 interface SavedTimeEntry {
   key: string;
@@ -82,11 +64,13 @@ export class TimeReportProvider {
   private viewModelDate: string | null = null;
   private processedBatchFiles: Set<string> = new Set();
   private cachedProjects: ProjectMap | null = null;
+  private batchRepository: BatchRepository;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
     this.outputChannel = outputChannel;
     this.currentDate = new Date();
+    this.batchRepository = new BatchRepository(config, outputChannel);
   }
 
   private getDateString(): string {
@@ -232,8 +216,10 @@ export class TimeReportProvider {
 
     // Use cached view model if available for the same date
     if (this.viewModel !== null && this.viewModelDate === dateStr) {
-      await this.mergeBatchesIntoReport(
+      await this.batchRepository.mergeBatchesIntoReport(
         this.viewModel,
+        this.currentDate,
+        this.config.viewGroupByMinutes,
         this.processedBatchFiles,
       );
       return this.viewModel;
@@ -275,7 +261,11 @@ export class TimeReportProvider {
       date: this.currentDate.toISOString(),
       entries: [],
     };
-    report = await this.mergeBatchesIntoReport(report);
+    report = await this.batchRepository.mergeBatchesIntoReport(
+      report,
+      this.currentDate,
+      this.config.viewGroupByMinutes,
+    );
     report.startOfDay = savedStartOfDay;
     report.endOfDay = savedEndOfDay;
     report.hasSavedReport = hasSavedReport;
@@ -317,168 +307,6 @@ export class TimeReportProvider {
     this.viewModelDate = dateStr;
 
     return report;
-  }
-
-  private async mergeBatchesIntoReport(
-    report: TimeReport,
-    processedFiles?: Set<string>,
-  ): Promise<TimeReport> {
-    const batchesDir = path.join(this.config.data, "batches");
-    const startOfDay = new Date(this.currentDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(this.currentDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    try {
-      // Read batch files from root directory (uncollected batches)
-      let allFiles: string[];
-      try {
-        allFiles = await fs.readdir(batchesDir);
-      } catch {
-        allFiles = [];
-      }
-
-      // Filter batch files by timestamp in filename to avoid reading all files
-      const relevantFiles = allFiles.filter((file) => {
-        if (processedFiles && processedFiles.has(file)) {
-          return false;
-        }
-        const match = file.match(/^batch_(\d+)/);
-        if (!match) {
-          return false;
-        }
-        const fileTimestamp = parseInt(match[1], 10);
-        return (
-          fileTimestamp >= startOfDay.getTime() &&
-          fileTimestamp <= endOfDay.getTime()
-        );
-      });
-
-      // Track processed files to avoid reprocessing on incremental merges
-      if (processedFiles) {
-        for (const file of relevantFiles) {
-          processedFiles.add(file);
-        }
-      }
-
-      for (const file of relevantFiles) {
-        const filePath = path.join(batchesDir, file);
-        const content = await fs.readFile(filePath, "utf-8");
-        const batch = JSON.parse(content);
-        this.mergeBatchEntryIntoReport(report, batch, startOfDay, endOfDay);
-      }
-
-      // Read from hierarchical format (collected batches: year/month/day.json)
-      // Determine which UTC dates overlap with the local day being viewed
-      const hierarchicalPaths = this.getHierarchicalBatchPaths(
-        batchesDir,
-        startOfDay,
-        endOfDay,
-      );
-
-      for (const hierarchicalPath of hierarchicalPaths) {
-        const pathKey = `hierarchical:${hierarchicalPath}`;
-        if (processedFiles && processedFiles.has(pathKey)) {
-          continue;
-        }
-
-        try {
-          const content = await fs.readFile(hierarchicalPath, "utf-8");
-          const batch = JSON.parse(content);
-          this.mergeBatchEntryIntoReport(report, batch, startOfDay, endOfDay);
-
-          if (processedFiles) {
-            processedFiles.add(pathKey);
-          }
-        } catch {
-          // File doesn't exist for this date, skip
-        }
-      }
-    } catch (error) {
-      this.outputChannel.appendLine(
-        `Error merging batches into report: ${error}`,
-      );
-    }
-
-    report.entries.sort((a, b) => a.key.localeCompare(b.key));
-    return report;
-  }
-
-  private getHierarchicalBatchPaths(
-    batchesDir: string,
-    startOfDay: Date,
-    endOfDay: Date,
-  ): string[] {
-    const paths: string[] = [];
-    const seen = new Set<string>();
-
-    // The local day boundaries may span two UTC dates
-    for (const date of [startOfDay, endOfDay]) {
-      const year = String(date.getUTCFullYear());
-      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(date.getUTCDate()).padStart(2, "0");
-      const key = `${year}/${month}/${day}`;
-
-      if (!seen.has(key)) {
-        seen.add(key);
-        paths.push(path.join(batchesDir, year, month, `${day}.json`));
-      }
-    }
-
-    return paths;
-  }
-
-  private mergeBatchEntryIntoReport(
-    report: TimeReport,
-    batch: any,
-    startOfDay: Date,
-    endOfDay: Date,
-  ): void {
-    for (const branch in batch) {
-      for (const directory in batch[branch]) {
-        const batchFiles = batch[branch][directory];
-
-        for (const fileEntry of batchFiles) {
-          const timestamp = new Date(fileEntry.Timestamp);
-
-          if (timestamp >= startOfDay && timestamp <= endOfDay) {
-            const key = this.getTimeKey(timestamp);
-            const existingEntry = report.entries.find(
-              (e) =>
-                e.key === key &&
-                e.branch === branch &&
-                e.directory === directory,
-            );
-
-            if (existingEntry) {
-              if (!existingEntry.files.includes(fileEntry.File)) {
-                existingEntry.files.push(fileEntry.File);
-                existingEntry.fileDetails.push({
-                  file: fileEntry.File,
-                  timestamp: fileEntry.Timestamp,
-                });
-              }
-            } else {
-              report.entries.push({
-                key,
-                branch,
-                directory,
-                files: [fileEntry.File],
-                fileDetails: [
-                  {
-                    file: fileEntry.File,
-                    timestamp: fileEntry.Timestamp,
-                  },
-                ],
-                comment: "",
-                project: "",
-                assignedBranch: "",
-              });
-            }
-          }
-        }
-      }
-    }
   }
 
   async loadProjects(): Promise<ProjectMap> {
