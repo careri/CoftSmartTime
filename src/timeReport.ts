@@ -443,6 +443,18 @@ export class TimeReportProvider {
     projects: ProjectMap,
     forceRefresh: boolean = false,
   ): void {
+    // Pre-populate defaultBranchProjects from saved entries so new
+    // timeslots for the same default branch + directory inherit the project
+    for (const entry of report.entries) {
+      const branch = entry.assignedBranch || entry.branch;
+      if (DEFAULT_BRANCHES.includes(branch) && entry.project) {
+        const compositeKey = `${branch}\0${entry.directory}`;
+        if (this.defaultBranchProjects[compositeKey] === undefined) {
+          this.defaultBranchProjects[compositeKey] = entry.project;
+        }
+      }
+    }
+
     // Group entries by time key
     const keyEntries: { [key: string]: TimeEntry[] } = {};
     for (const entry of report.entries) {

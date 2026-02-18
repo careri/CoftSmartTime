@@ -524,6 +524,41 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(report.entries[1].directory, "/projB");
   });
 
+  test("assignBranches inherits default branch project to new timeslots", () => {
+    const report: any = {
+      date: new Date().toISOString(),
+      hasSavedReport: true,
+      entries: [
+        {
+          key: "13:45",
+          branch: "no-branch",
+          directory: "/workspaces/smart-time",
+          files: ["a.ts"],
+          fileDetails: [],
+          comment: "",
+          project: "Linjearbete",
+          assignedBranch: "no-branch",
+        },
+        {
+          key: "23:30",
+          branch: "no-branch",
+          directory: "/workspaces/smart-time",
+          files: ["b.ts"],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "",
+        },
+      ],
+    };
+
+    provider.assignBranches(report, {});
+
+    assert.strictEqual(report.entries.length, 2);
+    assert.strictEqual(report.entries[1].key, "23:30");
+    assert.strictEqual(report.entries[1].project, "Linjearbete");
+  });
+
   test("lookupProject returns in-memory project for default branches", () => {
     const projects = {
       main: { "/project": "Persisted" },
