@@ -29,6 +29,7 @@ coft.smarttime should be the id of the extension.
 - ✅ MIT License
 - ✅ VSIX packaging support
 - ✅ UI extension kind (runs on host, works in dev containers)
+- ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository)
 
 ### Implementation Files
 
@@ -39,6 +40,10 @@ coft.smarttime should be the id of the extension.
 - `src/batch.ts` - Batch processing (writes ProcessBatchRequest)
 - `src/batchRepository.ts` - Batch file reading and merging operations
 - `src/operationQueue.ts` - OperationRequest types, OperationQueueWriter, OperationQueueProcessor
+- `src/timeReportRepository.ts` - Time report repository for reading saved reports
+- `src/projectRepository.ts` - Project repository for reading project mappings
+- `src/operationRepository.ts` - Operation repository for reading pending operations
+- `src/gitRepository.ts` - Git repository for file operations
 - `src/timeReport.ts` - Time report view
 - `src/extension.ts` - Main extension entry point
 - `src/test/config.test.ts` - Configuration tests
