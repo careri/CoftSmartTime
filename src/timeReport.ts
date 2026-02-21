@@ -864,10 +864,11 @@ export class TimeReportProvider {
                 <td class="row-buttons-cell">
                     <button class="row-btn copy-above-btn" data-index="${index}" title="Copy above">&#9650;</button>
                     <button class="row-btn copy-below-btn" data-index="${index}" title="Copy below">&#9660;</button>
+                    <button class="row-btn edit-btn" data-index="${index}" title="Edit branch">&#9998;</button>
                 </td>
                 <td>${this.escapeHtml(entry.key)}</td>
                 <td>${this.escapeHtml(entry.directory)}</td>
-                <td>${this.escapeHtml(entry.branch)}</td>
+                <td class="branch-cell">${this.escapeHtml(entry.branch)}</td>
                 <td><input type="text" class="comment-field" data-index="${index}" value="${this.escapeHtml(entry.comment)}" /></td>
                 <td class="project-cell">${this.escapeHtml(entry.project)}</td>
                 <td class="assigned-branch-cell">${this.escapeHtml(entry.assignedBranch)}</td>
@@ -1312,6 +1313,36 @@ export class TimeReportProvider {
                         e.stopPropagation();
                         const index = parseInt(btn.dataset.index);
                         vscode.postMessage({ command: 'copyRow', index: index, direction: 'below' });
+                    });
+                });
+
+                document.querySelectorAll('.edit-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const index = parseInt(btn.dataset.index);
+                        const row = btn.closest('tr');
+                        const branchCell = row.querySelector('.branch-cell');
+                        const currentBranch = currentEntries[index].branch;
+                        branchCell.innerHTML = '<input type="text" class="branch-input" value="' + escapeHtml(currentBranch) + '" />';
+                        const input = branchCell.querySelector('.branch-input');
+                        input.focus();
+                        input.select();
+                        
+                        function saveBranch() {
+                            const newBranch = input.value.trim();
+                            currentEntries[index].branch = newBranch;
+                            branchCell.innerHTML = escapeHtml(newBranch);
+                        }
+                        
+                        input.addEventListener('blur', saveBranch);
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                saveBranch();
+                            } else if (e.key === 'Escape') {
+                                branchCell.innerHTML = escapeHtml(currentBranch);
+                            }
+                        });
                     });
                 });
 

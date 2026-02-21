@@ -30,6 +30,7 @@ coft.smarttime should be the id of the extension.
 - ✅ VSIX packaging support
 - ✅ UI extension kind (runs on host, works in dev containers)
 - ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository)
+- ✅ Edit button in timereport timetable to make branch field editable inline
 
 ### Implementation Files
 

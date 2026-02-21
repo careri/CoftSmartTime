@@ -70,7 +70,7 @@ root/
 The time report is a single webview panel with three sections:
 
 1. **Overview** – project-grouped summary with start/end of day, total hours, editable project assignments
-2. **Timetable** – one row per time slot showing branch, directory, comment, project. Rows with a time gap (not followed by the next expected slot) are highlighted with an orange background.
+2. **Timetable** – one row per time slot with buttons to copy above/below and edit branch inline, showing branch (editable), directory, comment (editable), project. Rows with a time gap (not followed by the next expected slot) are highlighted with an orange background.
 3. **Batch Items** – detail view showing individual file changes when a timetable row is selected
 
 Communication between the webview and extension host uses `postMessage` / `onDidReceiveMessage`.
