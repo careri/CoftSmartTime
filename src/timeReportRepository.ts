@@ -49,4 +49,22 @@ export class TimeReportRepository {
       return null;
     }
   }
+
+  async saveReport(report: SavedTimeReport): Promise<void> {
+    const date = new Date(report.date);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    const reportPath = path.join(
+      this.config.data,
+      "reports",
+      String(year),
+      month,
+      `${day}.json`,
+    );
+
+    await fs.mkdir(path.dirname(reportPath), { recursive: true });
+    await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+  }
 }

@@ -178,6 +178,7 @@ export class TimeReportProvider {
         break;
       case "save":
         await this.saveReport(message.data);
+        await this.updateView();
         break;
       case "updateProjectMapping":
         await this.updateProjectMapping(
@@ -737,6 +738,7 @@ export class TimeReportProvider {
   }
 
   private async saveReport(reportData: TimeReport): Promise<void> {
+    await this.timeReportRepository.saveReport(reportData);
     this.viewModel = reportData;
     await this.processQueue();
     try {
@@ -1332,6 +1334,115 @@ export class TimeReportProvider {
                     return "";
                 }
 
+                function computeOverview(entries, projects) {
+                    let earliestTimestamp = Infinity;
+                    let latestTimestamp = -Infinity;
+
+                    const compositeTimeSlots = {};
+                    for (const entry of entries) {
+                        const branchToUse = entry.assignedBranch || entry.branch;
+                        const compositeKey = branchToUse + '\0' + entry.directory;
+                        if (!compositeTimeSlots[compositeKey]) {
+                            compositeTimeSlots[compositeKey] = {
+                                branch: branchToUse,
+                                directory: entry.directory,
+                                keys: new Set(),
+                            };
+                        }
+                        compositeTimeSlots[compositeKey].keys.add(entry.key);
+
+                        for (const detail of entry.fileDetails) {
+                            if (detail.timestamp < earliestTimestamp) {
+                                earliestTimestamp = detail.timestamp;
+                            }
+                            if (detail.timestamp > latestTimestamp) {
+                                latestTimestamp = detail.timestamp;
+                            }
+                        }
+                    }
+
+                    const computedStartOfDay = earliestTimestamp === Infinity ? '' : new Date(earliestTimestamp).toLocaleTimeString();
+                    const computedEndOfDay = latestTimestamp === -Infinity ? '' : new Date(latestTimestamp).toLocaleTimeString();
+
+                    const startOfDay = currentStartOfDay || computedStartOfDay;
+                    const endOfDay = currentEndOfDay || computedEndOfDay;
+
+                    const overviewEntries = Object.values(compositeTimeSlots).map(item => ({
+                        branch: item.branch,
+                        directory: item.directory,
+                        project: lookupProject(projects, item.branch, item.directory),
+                        timeSlots: item.keys.size,
+                    }));
+
+                    overviewEntries.sort((a, b) => {
+                        const branchCmp = a.branch.localeCompare(b.branch);
+                        if (branchCmp !== 0) return branchCmp;
+                        return a.directory.localeCompare(b.directory);
+                    });
+
+                    const groupMap = {};
+                    for (const entry of overviewEntries) {
+                        const projectKey = entry.project || '';
+                        if (!groupMap[projectKey]) groupMap[projectKey] = [];
+                        groupMap[projectKey].push(entry);
+                    }
+
+                    const groups = Object.keys(groupMap).sort((a, b) => {
+                        if (a === '' && b !== '') return 1;
+                        if (a !== '' && b === '') return -1;
+                        return a.localeCompare(b);
+                    }).map(project => ({
+                        project,
+                        totalTimeSlots: groupMap[project].reduce((sum, e) => sum + e.timeSlots, 0),
+                        entries: groupMap[project],
+                    }));
+
+                    return { startOfDay, endOfDay, entries: overviewEntries, groups };
+                }
+
+                function updateOverview() {
+                    const overview = computeOverview(currentEntries, currentProjects);
+                    const overviewSection = document.querySelector('.overview-section');
+                    // Regenerate the overview HTML
+                    const overviewRowsHtml = overview.groups.map(group => {
+                        const groupTimeMinutes = group.totalTimeSlots * 15; // assume 15
+                        const groupHours = Math.floor(groupTimeMinutes / 60);
+                        const groupMinutes = groupTimeMinutes % 60;
+                        const groupTimeStr = groupHours > 0 ? groupHours + 'h ' + groupMinutes + 'm' : groupMinutes + 'm';
+                        const groupLabel = group.project || "Unassigned";
+
+                        const headerRow = '<tr class="project-group-header"><td colspan="3"><strong>' + escapeHtml(groupLabel) + '</strong></td><td><strong>' + escapeHtml(groupTimeStr) + '</strong></td></tr>';
+
+                        const entryRows = group.entries.map(entry => {
+                            const selectedProject = entry.project;
+                            const timeMinutes = entry.timeSlots * 15;
+                            const hours = Math.floor(timeMinutes / 60);
+                            const minutes = timeMinutes % 60;
+                            const timeStr = hours > 0 ? hours + 'h ' + minutes + 'm' : minutes + 'm';
+                            const branchCell = '<a href="#" title="Open task">' + escapeHtml(entry.branch) + '</a>';
+                            const projectCell = '<div class="combobox-wrapper"><input type="text" class="overview-project-input" data-branch="' + escapeHtml(entry.branch) + '" data-directory="' + escapeHtml(entry.directory) + '" value="' + escapeHtml(selectedProject) + '" placeholder="Select or type project..." autocomplete="off" /><div class="combobox-dropdown"></div></div>';
+                            return '<tr class="project-group-entry"><td>' + branchCell + '</td><td>' + escapeHtml(entry.directory) + '</td><td>' + projectCell + '</td><td>' + escapeHtml(timeStr) + '</td></tr>';
+                        }).join("");
+
+                        return headerRow + entryRows;
+                    }).join("");
+
+                    const dayRange = '<div class="day-range"><span><strong>Start:</strong> <input type="text" id="startOfDay" class="day-range-input" value="' + escapeHtml(overview.startOfDay || "") + '" placeholder="—" /></span><span><strong>End:</strong> <input type="text" id="endOfDay" class="day-range-input" value="' + escapeHtml(overview.endOfDay || "") + '" placeholder="—" /></span><span class="worked-hours">' + escapeHtml(formatTotalWorkedHours(overview)) + '</span></div>';
+
+                    const table = '<table><thead><tr><th>Branch</th><th>Directory</th><th>Project</th><th>Time</th></tr></thead><tbody>' + (overviewRowsHtml || '<tr><td colspan="4">No entries for this date</td></tr>') + '</tbody></table>';
+
+                    overviewSection.innerHTML = '<h2>Overview</h2>' + dayRange + table;
+                }
+
+                function formatTotalWorkedHours(overview) {
+                    const totalSlots = overview.groups.reduce((sum, group) => sum + group.totalTimeSlots, 0);
+                    const totalMinutes = totalSlots * 15;
+                    const hours = Math.floor(totalMinutes / 60);
+                    const minutes = totalMinutes % 60;
+                    if (totalMinutes === 0) return "";
+                    return hours > 0 ? 'Total: ' + hours + 'h ' + minutes + 'm' : 'Total: ' + minutes + 'm';
+                }
+
                 document.querySelectorAll('.edit-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1360,7 +1471,7 @@ export class TimeReportProvider {
                                 const projectCell = row.querySelector('.project-cell');
                                 projectCell.innerHTML = escapeHtml(newProject);
                             }
-                            vscode.postMessage({ command: 'refreshView' });
+                            updateOverview();
                         }
                         
                         input.addEventListener('blur', saveBranch);
