@@ -62,8 +62,12 @@ export class OperationQueueWriter {
 
     await fs.mkdir(config.operationQueue, { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(request, null, 2), "utf-8");
+    const fileInfo =
+      request.type === "timereport" || request.type === "projects"
+        ? ` - ${request.file}`
+        : "";
     outputChannel.appendLine(
-      `Operation request created: ${filename} (${request.type})`,
+      `Operation request created: ${filename} (${request.type}${fileInfo})`,
     );
   }
 }
@@ -188,8 +192,12 @@ export class OperationQueueProcessor {
       // Delete the processed request
       await this.operationRepository.deleteOperation(filename);
       this.failureCounts.delete(filename);
+      const fileInfo =
+        request.type === "timereport" || request.type === "projects"
+          ? ` - ${request.file}`
+          : "";
       this.outputChannel.appendLine(
-        `Operation request processed: ${filename} (${request.type})`,
+        `Operation request processed: ${filename} (${request.type}${fileInfo})`,
       );
 
       // Queue housekeeping after first commit of the day
