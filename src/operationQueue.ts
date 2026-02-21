@@ -28,11 +28,16 @@ export interface HousekeepingRequest {
   type: "housekeeping";
 }
 
+export interface InvalidRequest {
+  type: "invalid";
+}
+
 export type OperationRequest =
   | ProcessBatchRequest
   | WriteTimeReportRequest
   | UpdateProjectsRequest
-  | HousekeepingRequest;
+  | HousekeepingRequest
+  | InvalidRequest;
 
 export class OperationQueueWriter {
   static async write(
@@ -42,7 +47,9 @@ export class OperationQueueWriter {
   ): Promise<void> {
     const timestamp = Date.now();
     const fileField =
-      request.type === "processBatch" || request.type === "housekeeping"
+      request.type === "processBatch" ||
+      request.type === "housekeeping" ||
+      request.type === "invalid"
         ? request.type
         : request.file;
     const hash = crypto
@@ -172,6 +179,8 @@ export class OperationQueueProcessor {
             "Housekeeping already done today, skipping",
           );
         }
+      } else if (request.type === "invalid") {
+        throw new Error("Invalid request JSON");
       } else {
         await this.processFileRequest(request);
       }

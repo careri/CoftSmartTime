@@ -23,11 +23,16 @@ export interface HousekeepingRequest {
   type: "housekeeping";
 }
 
+export interface InvalidRequest {
+  type: "invalid";
+}
+
 export type OperationRequest =
   | ProcessBatchRequest
   | WriteTimeReportRequest
   | UpdateProjectsRequest
-  | HousekeepingRequest;
+  | HousekeepingRequest
+  | InvalidRequest;
 
 export class OperationRepository {
   private config: CoftConfig;
@@ -61,6 +66,8 @@ export class OperationRepository {
         this.outputChannel.appendLine(
           `Error reading operation request ${file}: ${error}`,
         );
+        // Treat invalid JSON as an invalid request that will fail processing
+        operations.push({ file, request: { type: "invalid" } });
       }
     }
 
