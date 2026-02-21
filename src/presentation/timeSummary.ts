@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { CoftConfig } from "./config";
-import { TimeReportRepository } from "./timeReportRepository";
-import { TimeReport } from "./batchRepository";
+import { CoftConfig } from "../logic/config";
+import { TimeReportRepository } from "../storage/timeReportRepository";
+import { TimeReport } from "../storage/batchRepository";
 
 interface SummaryEntry {
   project: string;

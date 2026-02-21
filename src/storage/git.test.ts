@@ -3,8 +3,8 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { GitManager } from "../git";
-import { CoftConfig } from "../config";
+import { GitManager } from "./git";
+import { CoftConfig } from "../logic/config";
 
 suite("Git Test Suite", () => {
   let testRoot: string;

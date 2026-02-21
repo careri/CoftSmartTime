@@ -1,15 +1,15 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { ConfigManager, CoftConfig } from "./config";
-import { StorageManager } from "./storage";
-import { GitManager } from "./git";
-import { BatchProcessor } from "./batch";
+import { ConfigManager, CoftConfig } from "./logic/config";
+import { StorageManager } from "./storage/storage";
+import { GitManager } from "./storage/git";
+import { BatchProcessor } from "./logic/batchProcessor";
 import {
   OperationQueueProcessor,
   OperationQueueWriter,
-} from "./operationQueue";
-import { TimeReportProvider } from "./timeReport";
-import { TimeSummaryProvider } from "./timeSummary";
+} from "./logic/operationQueue";
+import { TimeReportProvider } from "./presentation/timeReport";
+import { TimeSummaryProvider } from "./presentation/timeSummary";
 
 let outputChannel: vscode.OutputChannel;
 let batchProcessor: BatchProcessor | null = null;

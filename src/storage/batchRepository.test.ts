@@ -3,9 +3,9 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { BatchRepository } from "../batchRepository";
-import { CoftConfig } from "../config";
-import { QueueEntry, BatchEntry } from "../storage";
+import { BatchRepository } from "./batchRepository";
+import { CoftConfig } from "../logic/config";
+import { QueueEntry, BatchEntry } from "./storage";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {

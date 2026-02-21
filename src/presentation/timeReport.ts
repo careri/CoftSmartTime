@@ -1,16 +1,19 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { CoftConfig } from "./config";
-import { OperationQueueWriter, OperationRequest } from "./operationQueue";
+import { CoftConfig } from "../logic/config";
+import {
+  OperationQueueWriter,
+  OperationRequest,
+} from "../logic/operationQueue";
 import {
   BatchRepository,
   TimeEntry,
   TimeReport,
   FileDetail,
-} from "./batchRepository";
-import { TimeReportRepository } from "./timeReportRepository";
-import { ProjectRepository, ProjectMap } from "./projectRepository";
+} from "../storage/batchRepository";
+import { TimeReportRepository } from "../storage/timeReportRepository";
+import { ProjectRepository, ProjectMap } from "../storage/projectRepository";
 
 interface SavedTimeEntry {
   key: string;

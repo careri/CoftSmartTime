@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
-import { StorageManager } from "./storage";
+import { StorageManager } from "../storage/storage";
 import { OperationQueueWriter } from "./operationQueue";
 
 export class BatchProcessor {

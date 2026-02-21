@@ -3,10 +3,10 @@ import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
-import { GitManager } from "./git";
-import { FileLock } from "./lock";
-import { StorageManager, BatchEntry } from "./storage";
-import { OperationRepository } from "./operationRepository";
+import { GitManager } from "../storage/git";
+import { FileLock } from "../storage/lock";
+import { StorageManager, BatchEntry } from "../storage/storage";
+import { OperationRepository } from "../storage/operationRepository";
 
 export interface ProcessBatchRequest {
   type: "processBatch";

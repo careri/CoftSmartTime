@@ -2,7 +2,7 @@ import * as fs from "fs/promises";
 import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "./config";
+import { CoftConfig } from "../logic/config";
 import { BatchRepository } from "./batchRepository";
 
 export interface CollectBatchesResult {

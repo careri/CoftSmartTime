@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
-import { ConfigManager } from "../config";
+import { ConfigManager } from "./config";
 
 suite("Config Test Suite", () => {
   test("ConfigManager should return valid config", () => {

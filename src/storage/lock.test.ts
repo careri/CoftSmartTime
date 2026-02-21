@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { FileLock } from "../lock";
+import { FileLock } from "./lock";
 
 suite("Lock Test Suite", () => {
   let testDir: string;

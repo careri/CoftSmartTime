@@ -9,15 +9,16 @@ COFT SmartTime (`coft-smarttime`) is a VS Code extension that passively tracks e
 The extension follows a pipeline architecture with repository pattern for data access:
 
 1. **Save Hook** → writes a queue entry per file save (`src/extension.ts`)
-2. **BatchProcessor** → periodically collects queue entries into batch files (`src/batch.ts`)
-3. **OperationQueue** → serialises all disk/git mutations through a locked queue (`src/operationQueue.ts`)
+2. **BatchProcessor** → periodically collects queue entries into batch files (`src/logic/batchProcessor.ts`)
+3. **OperationQueue** → serialises all disk/git mutations through a locked queue (`src/logic/operationQueue.ts`)
 4. **Repositories** → encapsulate data access for different domains:
-   - `BatchRepository` → reads and merges batch data into time reports (`src/batchRepository.ts`)
-   - `TimeReportRepository` → reads saved time reports (`src/timeReportRepository.ts`)
-   - `ProjectRepository` → reads project mappings (`src/projectRepository.ts`)
-   - `OperationRepository` → reads pending operation requests (`src/operationRepository.ts`)
-   - `GitRepository` → handles git-related file operations (`src/gitRepository.ts`)
-5. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/timeReport.ts`)
+   - `BatchRepository` → reads and merges batch data into time reports (`src/storage/batchRepository.ts`)
+   - `TimeReportRepository` → reads saved time reports (`src/storage/timeReportRepository.ts`)
+   - `ProjectRepository` → reads project mappings (`src/storage/projectRepository.ts`)
+   - `OperationRepository` → reads pending operation requests (`src/storage/operationRepository.ts`)
+   - `GitRepository` → handles git-related file operations (`src/storage/gitRepository.ts`)
+5. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`)
+6. **TimeSummaryProvider** → webview UI for time summary view with project aggregation and date filtering (`src/presentation/timeSummary.ts`)
 
 All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances.
 
@@ -25,21 +26,25 @@ All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The 
 
 ```
 src/
-  config.ts            – Configuration management (reads VS Code settings)
-  storage.ts           – Low-level file/queue operations, type definitions
-  lock.ts              – OS-agnostic file locking
-  git.ts               – Git init, commit, gc, push operations
-  gitRepository.ts     – Repository for git-related file operations
-  batch.ts             – BatchProcessor (timer-based queue → batch)
-  batchRepository.ts   – Reads batch files, merges into TimeReport model
-  operationQueue.ts    – OperationRequest types, writer, processor
-  operationRepository.ts – Repository for reading operation requests
-  timeReport.ts        – TimeReportProvider and TimeReportViewModel (webview panel, HTML generation, and state management)
-  timeReportRepository.ts – Repository for reading saved time reports
-  projectRepository.ts – Repository for reading project mappings
-  extension.ts         – Extension entry point, activation, commands
+  storage/
+    batchRepository.ts   – Reads batch files, merges into TimeReport model
+    gitRepository.ts     – Repository for git-related file operations
+    operationRepository.ts – Repository for reading operation requests
+    projectRepository.ts – Repository for reading project mappings
+    timeReportRepository.ts – Repository for reading saved time reports
+    storage.ts           – Low-level file/queue operations, type definitions
+    git.ts               – Git init, commit, gc, push operations
+    lock.ts              – OS-agnostic file locking
+  logic/
+    batchProcessor.ts    – BatchProcessor (timer-based queue → batch)
+    operationQueue.ts    – OperationRequest types, writer, processor
+    config.ts            – Configuration management (reads VS Code settings)
+  presentation/
+    timeReport.ts        – TimeReportProvider and TimeReportViewModel (webview panel, HTML generation, and state management)
+    timeSummary.ts       – TimeSummaryProvider (webview for time summary view)
+  extension.ts           – Extension entry point, activation, commands
   test/
-    *.test.ts          – Mocha test suites (one per source module)
+    extension.test.ts    – Test for extension
 ```
 
 ## Key Types
@@ -75,6 +80,17 @@ The time report is a single webview panel with three sections:
 
 Communication between the webview and extension host uses `postMessage` / `onDidReceiveMessage`.
 
+## Webview UI (in `timeSummary.ts`)
+
+The time summary is a webview panel showing aggregated time data over a date range (week/month) with two tables:
+
+1. **Summary Table** – project-level time totals, sorted by time descending
+2. **Date Table** – per-date breakdown with include/exclude checkboxes (weekends excluded by default), showing date, day of week, and work time
+
+Navigation buttons allow switching between current week/month and moving forward/backward. Toggling date inclusion updates the summary table dynamically.
+
+Communication between the webview and extension host uses `postMessage` / `onDidReceiveMessage`.
+
 ## Configuration Properties
 
 | Setting                             | Default             | Description                             |
@@ -88,7 +104,8 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 
 ## Commands
 
-- `COFT: Show Time Report` – opens the webview
+- `COFT: Show Time Report` – opens the daily time report webview
+- `COFT: Show Time Summary` – opens the time summary webview for week/month views
 - `COFT: Save Time Report` – saves (also bound to Ctrl+S when report is focused)
 - `COFT: Backup` – triggers housekeeping (git gc, push, export)
 

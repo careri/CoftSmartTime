@@ -3,8 +3,8 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { StorageManager } from "../storage";
-import { CoftConfig } from "../config";
+import { StorageManager } from "./storage";
+import { CoftConfig } from "../logic/config";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {

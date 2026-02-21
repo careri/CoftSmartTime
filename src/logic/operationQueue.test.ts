@@ -9,10 +9,10 @@ import {
   OperationRequest,
   WriteTimeReportRequest,
   UpdateProjectsRequest,
-} from "../operationQueue";
-import { GitManager } from "../git";
-import { StorageManager } from "../storage";
-import { CoftConfig } from "../config";
+} from "./operationQueue";
+import { GitManager } from "../storage/git";
+import { StorageManager } from "../storage/storage";
+import { CoftConfig } from "./config";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {

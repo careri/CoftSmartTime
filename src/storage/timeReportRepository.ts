@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "./config";
+import { CoftConfig } from "../logic/config";
 
 interface SavedTimeEntry {
   key: string;

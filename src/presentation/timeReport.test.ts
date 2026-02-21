@@ -3,8 +3,8 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { TimeReportProvider } from "../timeReport";
-import { CoftConfig } from "../config";
+import { TimeReportProvider } from "./timeReport";
+import { CoftConfig } from "../logic/config";
 
 suite("TimeReport Test Suite", () => {
   let testRoot: string;
