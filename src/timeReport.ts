@@ -192,6 +192,9 @@ export class TimeReportProvider {
       case "refreshProjects":
         await this.refreshProjects();
         break;
+      case "refreshView":
+        await this.updateView();
+        break;
     }
   }
 
@@ -309,10 +312,7 @@ export class TimeReportProvider {
     // Apply saved comments and projects back onto batch-derived entries
     for (const savedEntry of savedEntries) {
       const match = report.entries.find(
-        (e) =>
-          e.key === savedEntry.key &&
-          e.branch === savedEntry.branch &&
-          e.directory === savedEntry.directory,
+        (e) => e.key === savedEntry.key && e.directory === savedEntry.directory,
       );
       if (match) {
         if (savedEntry.comment) {
@@ -320,6 +320,9 @@ export class TimeReportProvider {
         }
         if (savedEntry.project) {
           match.project = savedEntry.project;
+        }
+        if (savedEntry.branch) {
+          match.branch = savedEntry.branch;
         }
         if (savedEntry.assignedBranch) {
           match.assignedBranch = savedEntry.assignedBranch;
@@ -1331,7 +1334,9 @@ export class TimeReportProvider {
                         function saveBranch() {
                             const newBranch = input.value.trim();
                             currentEntries[index].branch = newBranch;
+                            currentEntries[index].assignedBranch = newBranch;
                             branchCell.innerHTML = escapeHtml(newBranch);
+                            vscode.postMessage({ command: 'refreshView' });
                         }
                         
                         input.addEventListener('blur', saveBranch);
