@@ -9,6 +9,8 @@ import {
   TimeReport,
   FileDetail,
 } from "./batchRepository";
+import { TimeReportRepository } from "./timeReportRepository";
+import { ProjectRepository, ProjectMap } from "./projectRepository";
 
 interface SavedTimeEntry {
   key: string;
@@ -24,12 +26,6 @@ interface SavedTimeReport {
   entries: SavedTimeEntry[];
   startOfDay?: string;
   endOfDay?: string;
-}
-
-interface ProjectMap {
-  [branch: string]: {
-    [directory: string]: string;
-  };
 }
 
 const DEFAULT_BRANCHES = ["main", "master", "no-branch"];
@@ -66,12 +62,16 @@ export class TimeReportProvider {
   private processedBatchFiles: Set<string> = new Set();
   private cachedProjects: ProjectMap | null = null;
   private batchRepository: BatchRepository;
+  private timeReportRepository: TimeReportRepository;
+  private projectRepository: ProjectRepository;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
     this.outputChannel = outputChannel;
     this.currentDate = new Date();
     this.batchRepository = new BatchRepository(config, outputChannel);
+    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
+    this.projectRepository = new ProjectRepository(config, outputChannel);
   }
 
   private getDateString(): string {
@@ -264,15 +264,12 @@ export class TimeReportProvider {
     let savedEndOfDay: string | undefined;
     let hasSavedReport = false;
 
-    try {
-      const content = await fs.readFile(reportPath, "utf-8");
-      const saved: SavedTimeReport = JSON.parse(content);
+    const saved = await this.timeReportRepository.readReport(this.currentDate);
+    if (saved) {
       savedEntries = saved.entries || [];
       savedStartOfDay = saved.startOfDay;
       savedEndOfDay = saved.endOfDay;
       hasSavedReport = true;
-    } catch {
-      // No saved report yet
     }
 
     // Build report entirely from batch data
@@ -335,41 +332,8 @@ export class TimeReportProvider {
     if (this.cachedProjects !== null) {
       return this.cachedProjects;
     }
-    const projectsPath = path.join(this.config.data, "projects.json");
-    let result: ProjectMap = {};
-    try {
-      const content = await fs.readFile(projectsPath, "utf-8");
-      const parsed = JSON.parse(content);
-      // Validate new format: { branch: { directory: project }, _unbound: [...] }
-      if (typeof parsed === "object" && parsed !== null) {
-        let valid = true;
-        for (const key of Object.keys(parsed)) {
-          if (key === "_unbound") {
-            if (!Array.isArray(parsed[key])) {
-              this.outputChannel.appendLine(
-                "projects.json _unbound is not an array, ignoring",
-              );
-              delete parsed[key];
-            }
-            continue;
-          }
-          if (typeof parsed[key] !== "object" || parsed[key] === null) {
-            this.outputChannel.appendLine(
-              "projects.json has unexpected format, treating as empty",
-            );
-            valid = false;
-            break;
-          }
-        }
-        if (valid) {
-          result = parsed;
-        }
-      }
-    } catch {
-      // No projects file or invalid JSON
-    }
-    this.cachedProjects = result;
-    return result;
+    this.cachedProjects = await this.projectRepository.readProjects();
+    return this.cachedProjects;
   }
 
   private async saveProjects(projects: ProjectMap): Promise<void> {

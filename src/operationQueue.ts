@@ -6,6 +6,7 @@ import { CoftConfig } from "./config";
 import { GitManager } from "./git";
 import { FileLock } from "./lock";
 import { StorageManager, BatchEntry } from "./storage";
+import { OperationRepository } from "./operationRepository";
 
 export interface ProcessBatchRequest {
   type: "processBatch";
@@ -66,6 +67,7 @@ export class OperationQueueProcessor {
   private storage: StorageManager;
   private lock: FileLock;
   private outputChannel: vscode.OutputChannel;
+  private operationRepository: OperationRepository;
   private timer: NodeJS.Timeout | null = null;
   private failureCounts: Map<string, number> = new Map();
   private maxFailures: number = 5;
@@ -83,6 +85,7 @@ export class OperationQueueProcessor {
     this.storage = storage;
     this.lock = new FileLock(this.config.data, outputChannel);
     this.outputChannel = outputChannel;
+    this.operationRepository = new OperationRepository(config, outputChannel);
   }
 
   start(): void {
@@ -107,21 +110,14 @@ export class OperationQueueProcessor {
 
     this.processing = true;
     try {
-      let files: string[];
-      try {
-        files = await fs.readdir(this.config.operationQueue);
-      } catch {
-        return;
-      }
+      const operations = await this.operationRepository.readPendingOperations();
 
-      const requestFiles = files.filter((f) => f.endsWith(".json")).sort();
-
-      if (requestFiles.length === 0) {
+      if (operations.length === 0) {
         return;
       }
 
       this.outputChannel.appendLine(
-        `--- Processing ${requestFiles.length} operation request(s) ---`,
+        `--- Processing ${operations.length} operation request(s) ---`,
       );
 
       const lockAcquired = await this.lock.acquire(1000);
@@ -133,8 +129,8 @@ export class OperationQueueProcessor {
       }
 
       try {
-        for (const file of requestFiles) {
-          await this.processRequest(file);
+        for (const { file, request } of operations) {
+          await this.processRequest(file, request);
         }
       } finally {
         await this.lock.release();
@@ -152,13 +148,11 @@ export class OperationQueueProcessor {
     }
   }
 
-  private async processRequest(filename: string): Promise<void> {
-    const requestPath = path.join(this.config.operationQueue, filename);
-
+  private async processRequest(
+    filename: string,
+    request: OperationRequest,
+  ): Promise<void> {
     try {
-      const content = await fs.readFile(requestPath, "utf-8");
-      const request: OperationRequest = JSON.parse(content);
-
       if (request.type === "processBatch") {
         await this.processProcessBatch();
       } else if (request.type === "housekeeping") {
@@ -183,7 +177,7 @@ export class OperationQueueProcessor {
       }
 
       // Delete the processed request
-      await fs.unlink(requestPath);
+      await this.operationRepository.deleteOperation(filename);
       this.failureCounts.delete(filename);
       this.outputChannel.appendLine(
         `Operation request processed: ${filename} (${request.type})`,
@@ -211,6 +205,7 @@ export class OperationQueueProcessor {
       );
 
       if (count >= this.maxFailures) {
+        const requestPath = path.join(this.config.operationQueue, filename);
         await this.moveToBackup(filename, requestPath);
       }
     }
