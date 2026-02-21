@@ -6,12 +6,17 @@ COFT SmartTime (`coft-smarttime`) is a VS Code extension that passively tracks e
 
 ## Architecture
 
-The extension follows a pipeline architecture:
+The extension follows a pipeline architecture with repository pattern for data access:
 
 1. **Save Hook** → writes a queue entry per file save (`src/extension.ts`)
 2. **BatchProcessor** → periodically collects queue entries into batch files (`src/batch.ts`)
 3. **OperationQueue** → serialises all disk/git mutations through a locked queue (`src/operationQueue.ts`)
-4. **BatchRepository** → reads and merges batch data into time reports (`src/batchRepository.ts`)
+4. **Repositories** → encapsulate data access for different domains:
+   - `BatchRepository` → reads and merges batch data into time reports (`src/batchRepository.ts`)
+   - `TimeReportRepository` → reads saved time reports (`src/timeReportRepository.ts`)
+   - `ProjectRepository` → reads project mappings (`src/projectRepository.ts`)
+   - `OperationRepository` → reads pending operation requests (`src/operationRepository.ts`)
+   - `GitRepository` → handles git-related file operations (`src/gitRepository.ts`)
 5. **TimeReportProvider** → webview UI for viewing and editing reports (`src/timeReport.ts`)
 
 All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances.
@@ -24,10 +29,14 @@ src/
   storage.ts           – Low-level file/queue operations, type definitions
   lock.ts              – OS-agnostic file locking
   git.ts               – Git init, commit, gc, push operations
+  gitRepository.ts     – Repository for git-related file operations
   batch.ts             – BatchProcessor (timer-based queue → batch)
   batchRepository.ts   – Reads batch files, merges into TimeReport model
   operationQueue.ts    – OperationRequest types, writer, processor
+  operationRepository.ts – Repository for reading operation requests
   timeReport.ts        – TimeReportProvider (webview panel, HTML generation)
+  timeReportRepository.ts – Repository for reading saved time reports
+  projectRepository.ts – Repository for reading project mappings
   extension.ts         – Extension entry point, activation, commands
   test/
     *.test.ts          – Mocha test suites (one per source module)

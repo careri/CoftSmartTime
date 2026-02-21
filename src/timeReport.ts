@@ -50,6 +50,10 @@ interface OverviewData {
   groups: ProjectGroup[];
 }
 
+interface QueuedOperation {
+  type: "saveReport" | "saveProjects";
+}
+
 export class TimeReportProvider {
   private config: CoftConfig;
   private lock: null = null;
@@ -61,6 +65,7 @@ export class TimeReportProvider {
   private viewModelDate: string | null = null;
   private processedBatchFiles: Set<string> = new Set();
   private cachedProjects: ProjectMap | null = null;
+  private operationQueue: QueuedOperation[] = [];
   private batchRepository: BatchRepository;
   private timeReportRepository: TimeReportRepository;
   private projectRepository: ProjectRepository;
@@ -72,6 +77,21 @@ export class TimeReportProvider {
     this.batchRepository = new BatchRepository(config, outputChannel);
     this.timeReportRepository = new TimeReportRepository(config, outputChannel);
     this.projectRepository = new ProjectRepository(config, outputChannel);
+  }
+
+  private async processQueue(): Promise<void> {
+    for (const op of this.operationQueue) {
+      if (op.type === "saveReport") {
+        if (this.viewModel) {
+          await this.saveReportToFile(this.viewModel);
+        }
+      } else if (op.type === "saveProjects") {
+        if (this.cachedProjects) {
+          await this.saveProjects(this.cachedProjects);
+        }
+      }
+    }
+    this.operationQueue = [];
   }
 
   private getDateString(): string {
@@ -193,8 +213,8 @@ export class TimeReportProvider {
     const projects = await this.loadProjects();
     this.assignBranches(report, projects, true);
 
-    // Save the updated report with refreshed assignedBranch and project values
-    await this.saveReport(report);
+    // Queue the save of the updated report
+    this.operationQueue.push({ type: "saveReport" });
 
     // Update the view with the refreshed data
     const overview = this.computeOverview(report, projects);
@@ -360,7 +380,7 @@ export class TimeReportProvider {
         if (!unbound.includes(project)) {
           unbound.push(project);
           (projects as any)["_unbound"] = unbound;
-          await this.saveProjects(projects);
+          this.operationQueue.push({ type: "saveProjects" });
         }
       }
       await this.updateView();
@@ -371,7 +391,7 @@ export class TimeReportProvider {
       projects[branch] = {};
     }
     projects[branch][directory] = project;
-    await this.saveProjects(projects);
+    this.operationQueue.push({ type: "saveProjects" });
     // Refresh view to update timetable project columns
     await this.updateView();
   }
@@ -618,14 +638,7 @@ export class TimeReportProvider {
     // Update start/end of day based on the new entry
     this.updateStartEndOfDay(report);
 
-    try {
-      await this.saveReportToFile(report);
-    } catch (error) {
-      this.outputChannel.appendLine(`Error saving report after copy: ${error}`);
-      vscode.window.showErrorMessage(
-        `COFT SmartTime: Failed to save report: ${error}`,
-      );
-    }
+    this.operationQueue.push({ type: "saveReport" });
     await this.updateView();
   }
 
@@ -721,9 +734,9 @@ export class TimeReportProvider {
   }
 
   private async saveReport(reportData: TimeReport): Promise<void> {
+    this.viewModel = reportData;
+    await this.processQueue();
     try {
-      await this.saveReportToFile(reportData);
-
       // Save project mappings from report entries
       const projects = await this.loadProjects();
       let projectsChanged = false;
