@@ -21,6 +21,7 @@ coft.smarttime should be the id of the extension.
 - ✅ Unit tests for all modules (config, storage, batch, extension, git, lock, timeReport)
 - ✅ In-memory view model for time report (eventual consistency with lazy saves)
 - ✅ Deferred save operations in timereport view using FIFO memory queue
+- ✅ Separate TimeReportViewModel class for UI state management
 - ✅ Devcontainer with all dependencies
 - ✅ Git bash aliases in devcontainer
 - ✅ Auto-create COFT_ROOT directory on first use

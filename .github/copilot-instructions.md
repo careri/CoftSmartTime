@@ -17,7 +17,7 @@ The extension follows a pipeline architecture with repository pattern for data a
    - `ProjectRepository` → reads project mappings (`src/projectRepository.ts`)
    - `OperationRepository` → reads pending operation requests (`src/operationRepository.ts`)
    - `GitRepository` → handles git-related file operations (`src/gitRepository.ts`)
-5. **TimeReportProvider** → webview UI for viewing and editing reports (`src/timeReport.ts`)
+5. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/timeReport.ts`)
 
 All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances.
 
@@ -34,7 +34,7 @@ src/
   batchRepository.ts   – Reads batch files, merges into TimeReport model
   operationQueue.ts    – OperationRequest types, writer, processor
   operationRepository.ts – Repository for reading operation requests
-  timeReport.ts        – TimeReportProvider (webview panel, HTML generation)
+  timeReport.ts        – TimeReportProvider and TimeReportViewModel (webview panel, HTML generation, and state management)
   timeReportRepository.ts – Repository for reading saved time reports
   projectRepository.ts – Repository for reading project mappings
   extension.ts         – Extension entry point, activation, commands
