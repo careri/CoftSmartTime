@@ -32,6 +32,7 @@ coft.smarttime should be the id of the extension.
 - ✅ UI extension kind (runs on host, works in dev containers)
 - ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository)
 - ✅ Edit button in timereport timetable to make branch field editable inline
+- ✅ Time summary view with project-level aggregation and date filtering
 
 ### Implementation Files
 
@@ -47,6 +48,7 @@ coft.smarttime should be the id of the extension.
 - `src/operationRepository.ts` - Operation repository for reading pending operations
 - `src/gitRepository.ts` - Git repository for file operations
 - `src/timeReport.ts` - Time report view
+- `src/timeSummary.ts` - Time summary view
 - `src/extension.ts` - Main extension entry point
 - `src/test/config.test.ts` - Configuration tests
 - `src/test/storage.test.ts` - Storage tests

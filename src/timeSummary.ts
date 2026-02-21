@@ -12,6 +12,7 @@ interface DateEntry {
   date: string;
   workTime: number;
   include: boolean;
+  dayOfWeek: string;
 }
 
 interface SummaryData {
@@ -239,10 +240,14 @@ export class TimeSummaryProvider {
       for (const entry of report.entries) {
         totalSlots += 1;
       }
+      const dayOfWeek = new Date(report.date).toLocaleDateString(undefined, {
+        weekday: "short",
+      });
       dateEntries.push({
         date,
         workTime: totalSlots * this.config.viewGroupByMinutes,
         include: !isWeekend,
+        dayOfWeek,
       });
     }
 
@@ -258,12 +263,12 @@ export class TimeSummaryProvider {
       }
     }
 
-    const summaryEntries: SummaryEntry[] = Object.keys(projectTotals).map(
-      (project) => ({
+    const summaryEntries: SummaryEntry[] = Object.keys(projectTotals)
+      .map((project) => ({
         project,
         totalTime: projectTotals[project] * this.config.viewGroupByMinutes,
-      }),
-    );
+      }))
+      .sort((a, b) => b.totalTime - a.totalTime);
 
     return { summaryEntries, dateEntries };
   }
@@ -287,7 +292,7 @@ export class TimeSummaryProvider {
         const minutes = entry.workTime % 60;
         const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
         const checked = entry.include ? "checked" : "";
-        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td>${entry.date}</td><td>${timeStr}</td></tr>`;
+        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td>${entry.date}</td><td>${entry.dayOfWeek}</td><td>${timeStr}</td></tr>`;
       })
       .join("");
 
@@ -322,7 +327,7 @@ export class TimeSummaryProvider {
     </table>
     <h2>Dates</h2>
     <table>
-        <thead><tr><th>Include</th><th>Date</th><th>Work Time</th></tr></thead>
+        <thead><tr><th>Include</th><th>Date</th><th>Day</th><th>Work Time</th></tr></thead>
         <tbody>${dateRows}</tbody>
     </table>
     <script>
