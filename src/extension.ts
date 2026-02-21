@@ -9,11 +9,13 @@ import {
   OperationQueueWriter,
 } from "./operationQueue";
 import { TimeReportProvider } from "./timeReport";
+import { TimeSummaryProvider } from "./timeSummary";
 
 let outputChannel: vscode.OutputChannel;
 let batchProcessor: BatchProcessor | null = null;
 let operationQueueProcessor: OperationQueueProcessor | null = null;
 let timeReportProvider: TimeReportProvider | null = null;
+let timeSummaryProvider: TimeSummaryProvider | null = null;
 let storage: StorageManager | null = null;
 let git: GitManager | null = null;
 let isEnabled = false;
@@ -37,6 +39,18 @@ export async function activate(context: vscode.ExtensionContext) {
     async () => {
       if (timeReportProvider) {
         await timeReportProvider.show(context);
+      } else {
+        vscode.window.showErrorMessage("COFT SmartTime is not initialized");
+      }
+    },
+  );
+
+  // Register time summary command
+  const timeSummaryDisposable = vscode.commands.registerCommand(
+    "coft-smarttime.showTimeSummary",
+    async () => {
+      if (timeSummaryProvider) {
+        await timeSummaryProvider.show(context);
       } else {
         vscode.window.showErrorMessage("COFT SmartTime is not initialized");
       }
@@ -80,6 +94,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     saveDisposable,
     timeReportDisposable,
+    timeSummaryDisposable,
     backupDisposable,
     saveReportDisposable,
     configChangeDisposable,
@@ -110,6 +125,7 @@ function shutdown(): void {
     operationQueueProcessor = null;
   }
   timeReportProvider = null;
+  timeSummaryProvider = null;
   storage = null;
   git = null;
   isEnabled = false;
@@ -156,6 +172,9 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
 
     // Create time report provider
     timeReportProvider = new TimeReportProvider(config, outputChannel);
+
+    // Create time summary provider
+    timeSummaryProvider = new TimeSummaryProvider(config, outputChannel);
 
     isEnabled = true;
     return true;
