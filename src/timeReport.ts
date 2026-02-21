@@ -1319,6 +1319,19 @@ export class TimeReportProvider {
                     });
                 });
 
+                function lookupProject(projects, branch, directory) {
+                    if (projects[branch] && projects[branch][directory]) {
+                        return projects[branch][directory];
+                    }
+                    if (projects[branch]) {
+                        const dirs = Object.keys(projects[branch]);
+                        if (dirs.length > 0) {
+                            return projects[branch][dirs[0]];
+                        }
+                    }
+                    return "";
+                }
+
                 document.querySelectorAll('.edit-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1335,7 +1348,18 @@ export class TimeReportProvider {
                             const newBranch = input.value.trim();
                             currentEntries[index].branch = newBranch;
                             currentEntries[index].assignedBranch = newBranch;
+                            const newProject = lookupProject(currentProjects, newBranch, currentEntries[index].directory);
+                            if (newProject) {
+                                currentEntries[index].project = newProject;
+                            }
                             branchCell.innerHTML = escapeHtml(newBranch);
+                            const row = branchCell.closest('tr');
+                            const assignedCell = row.querySelector('.assigned-branch-cell');
+                            assignedCell.innerHTML = escapeHtml(newBranch);
+                            if (newProject) {
+                                const projectCell = row.querySelector('.project-cell');
+                                projectCell.innerHTML = escapeHtml(newProject);
+                            }
                             vscode.postMessage({ command: 'refreshView' });
                         }
                         
