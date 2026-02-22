@@ -1440,23 +1440,6 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(projects2["feature"]["/workspace"], "Alpha");
   });
 
-  test("saveProjects updates the projects cache", async () => {
-    // First load to populate cache
-    const projects1 = await provider.loadProjects();
-    assert.deepStrictEqual(projects1, {});
-
-    // Save new projects
-    const newProjects = {
-      feature: { "/workspace": "Gamma" },
-    };
-    await (provider as any).saveProjects(newProjects);
-
-    // loadProjects should return the cached version from saveProjects
-    const projects2 = await provider.loadProjects();
-    assert.strictEqual(projects2, newProjects);
-    assert.strictEqual(projects2["feature"]["/workspace"], "Gamma");
-  });
-
   test("processedBatchFiles prevents double-processing of batch files", async () => {
     const now = new Date();
     const timestamp = now.getTime();

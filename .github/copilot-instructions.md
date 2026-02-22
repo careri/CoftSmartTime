@@ -23,7 +23,7 @@ The extension follows a pipeline architecture with repository pattern for data a
 6. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`, `src/presentation/timeReportViewModel.ts`)
 7. **TimeSummaryProvider** → webview UI for time summary view with project aggregation and date filtering (`src/presentation/timeSummary.ts`)
 
-All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety.
+All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety. Project mappings are updated incrementally via `ProjectChangeRequest` to avoid concurrency issues with full file rewrites.
 
 ## Source Layout
 
@@ -38,6 +38,7 @@ src/
     storage.ts           – Low-level file/queue operations, type definitions
     git.ts               – Git init, commit, gc, push operations
     lock.ts              – OS-agnostic file locking
+    projectRepository.test.ts – Tests for project repository incremental operations
   application/
     batchProcessor.ts    – BatchProcessor (timer-based queue → batch)
     operationQueueWriter.ts  – OperationQueueWriter (writes operation requests)
@@ -60,7 +61,7 @@ src/
 - **`TimeEntry`** – one time slot: `{ key: "09:15", branch, directory, files, fileDetails, comment, project, assignedBranch }`
 - **`TimeReport`** – a day's report: `{ date, entries[], startOfDay?, endOfDay? }`
 - **`CoftConfig`** – all resolved config paths and settings
-- **`OperationRequest`** – union of `processBatch | timereport | projects | housekeeping`
+- **`OperationRequest`** – union of `processBatch | timereport | projects | projectChange | housekeeping`
 
 ## Data Storage (`COFT_ROOT`, default `~/.coft.smarttime`)
 

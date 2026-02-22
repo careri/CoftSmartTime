@@ -19,5 +19,5 @@ export interface OverviewData {
 }
 
 export interface QueuedOperation {
-  type: "saveReport" | "saveProjects";
+  type: "saveReport";
 }

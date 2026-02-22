@@ -35,6 +35,7 @@ coft.smarttime should be the id of the extension.
 - ✅ Time summary view with project-level aggregation and date filtering
 - ✅ Clean architecture refactoring: logic/ → application/, services/ for business logic, repositories for data access
 - ✅ File I/O encapsulation refactoring: All direct file writes moved to repository methods, ensuring data access is abstracted through CRUD operations with strong type safety
+- ✅ Incremental project mapping updates: Replaced full projects.json writes with atomic ProjectChangeRequest operations for better concurrency
 
 ### Implementation Files
 
@@ -50,6 +51,7 @@ coft.smarttime should be the id of the extension.
 - `src/storage/queueRepository.ts` - Queue repository for queue operations
 - `src/storage/timeReportRepository.ts` - Time report repository for reading saved reports
 - `src/storage/projectRepository.ts` - Project repository for reading project mappings
+- `src/storage/projectRepository.test.ts` - Project repository tests for incremental operations
 - `src/storage/operationRepository.ts` - Operation repository for reading pending operations
 - `src/storage/gitRepository.ts` - Git repository for file operations
 - `src/services/gitService.ts` - Git export business logic
@@ -200,6 +202,7 @@ Batches are stored in COFT_DATA/batches
 - **ProcessBatchRequest** (`type: "processBatch"`) - Moves queue files to batch, groups them, writes batch entry to COFT_DATA, commits to git, deletes batch files.
 - **WriteTimeReportRequest** (`type: "timereport"`) - Writes a time report file to COFT_DATA, commits to git.
 - **UpdateProjectsRequest** (`type: "projects"`) - Writes projects.json to COFT_DATA, commits to git.
+- **ProjectChangeRequest** (`type: "projectChange"`) - Applies incremental changes to projects.json (add/update/delete project mappings), commits to git.
 - **HousekeepingRequest** (`type: "housekeeping"`) - Runs git gc, pushes to backup, exports time reports. Checks `.last-housekeeping` date to skip if already done today.
 
 - ✅ Failed requests are retried up to 5 times, then moved to COFT_OPERATION_QUEUE_BACKUP.

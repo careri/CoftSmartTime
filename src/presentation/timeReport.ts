@@ -66,10 +66,6 @@ export class TimeReportProvider {
         if (this.viewModel) {
           await this.saveReportToFile(this.viewModel);
         }
-      } else if (op.type === "saveProjects") {
-        if (this.cachedProjects) {
-          await this.saveProjects(this.cachedProjects);
-        }
       }
     }
     this.operationQueue = [];
@@ -341,15 +337,6 @@ export class TimeReportProvider {
     return this.cachedProjects;
   }
 
-  private async saveProjects(projects: ProjectMap): Promise<void> {
-    this.cachedProjects = projects;
-    await OperationQueueWriter.write(
-      this.operationRepository,
-      { type: "projects", file: "projects.json", body: projects },
-      this.outputChannel,
-    );
-  }
-
   private async updateProjectMapping(
     branch: string,
     project: string,
@@ -360,23 +347,31 @@ export class TimeReportProvider {
       this.defaultBranchProjects[compositeKey] = project;
       // Save project name as unbound for autocomplete
       if (project) {
-        const projects = await this.loadProjects();
-        const unbound: string[] = (projects as any)["_unbound"] || [];
-        if (!unbound.includes(project)) {
-          unbound.push(project);
-          (projects as any)["_unbound"] = unbound;
-          this.operationQueue.push({ type: "saveProjects" });
-        }
+        await OperationQueueWriter.write(
+          this.operationRepository,
+          {
+            type: "projectChange",
+            action: "addUnbound",
+            project: project,
+          },
+          this.outputChannel,
+        );
       }
       await this.updateView();
       return;
     }
-    const projects = await this.loadProjects();
-    if (!projects[branch]) {
-      projects[branch] = {};
-    }
-    projects[branch][directory] = project;
-    this.operationQueue.push({ type: "saveProjects" });
+    // Queue the project change
+    await OperationQueueWriter.write(
+      this.operationRepository,
+      {
+        type: "projectChange",
+        action: "add",
+        branch: branch,
+        directory: directory,
+        project: project,
+      },
+      this.outputChannel,
+    );
     // Refresh view to update timetable project columns
     await this.updateView();
   }
@@ -724,30 +719,24 @@ export class TimeReportProvider {
     await this.processQueue();
     try {
       // Save project mappings from report entries
-      const projects = await this.loadProjects();
-      let projectsChanged = false;
       for (const entry of reportData.entries) {
         const mappingBranch = entry.assignedBranch || entry.branch;
         if (DEFAULT_BRANCHES.includes(mappingBranch)) {
           continue;
         }
         if (entry.project) {
-          const currentProject = this.lookupProject(
-            projects,
-            mappingBranch,
-            entry.directory,
+          await OperationQueueWriter.write(
+            this.operationRepository,
+            {
+              type: "projectChange",
+              action: "add",
+              branch: mappingBranch,
+              directory: entry.directory,
+              project: entry.project,
+            },
+            this.outputChannel,
           );
-          if (entry.project !== currentProject) {
-            if (!projects[mappingBranch]) {
-              projects[mappingBranch] = {};
-            }
-            projects[mappingBranch][entry.directory] = entry.project;
-            projectsChanged = true;
-          }
         }
-      }
-      if (projectsChanged) {
-        await this.saveProjects(projects);
       }
 
       vscode.window.showInformationMessage("Time report saved successfully");

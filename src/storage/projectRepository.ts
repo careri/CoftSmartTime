@@ -64,4 +64,39 @@ export class ProjectRepository {
       "utf-8",
     );
   }
+
+  async addOrUpdateProject(
+    branch: string,
+    directory: string,
+    project: string,
+  ): Promise<void> {
+    const projects = await this.readProjects();
+    if (!projects[branch]) {
+      projects[branch] = {};
+    }
+    projects[branch][directory] = project;
+    await this.saveProjects(projects);
+  }
+
+  async deleteProject(branch: string, directory: string): Promise<void> {
+    const projects = await this.readProjects();
+    if (projects[branch] && projects[branch][directory]) {
+      delete projects[branch][directory];
+      // If branch is empty, remove it
+      if (Object.keys(projects[branch]).length === 0) {
+        delete projects[branch];
+      }
+      await this.saveProjects(projects);
+    }
+  }
+
+  async addUnboundProject(project: string): Promise<void> {
+    const projects = await this.readProjects();
+    const unbound: string[] = (projects as any)["_unbound"] || [];
+    if (!unbound.includes(project)) {
+      unbound.push(project);
+      (projects as any)["_unbound"] = unbound;
+      await this.saveProjects(projects);
+    }
+  }
 }

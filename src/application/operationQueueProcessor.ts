@@ -11,6 +11,7 @@ import {
   ProcessBatchRequest,
   WriteTimeReportRequest,
   UpdateProjectsRequest,
+  ProjectChangeRequest,
   HousekeepingRequest,
   InvalidRequest,
   OperationRequest,
@@ -127,6 +128,8 @@ export class OperationQueueProcessor {
             "Housekeeping already done today, skipping",
           );
         }
+      } else if (request.type === "projectChange") {
+        await this.processProjectChange(request);
       } else if (request.type === "invalid") {
         throw new Error("Invalid request JSON");
       } else {
@@ -235,6 +238,33 @@ export class OperationQueueProcessor {
 
     // Commit the change
     await this.git.commit(`${request.type}: ${request.file}`);
+  }
+
+  private async processProjectChange(
+    request: ProjectChangeRequest,
+  ): Promise<void> {
+    // Apply the change to projects.json
+    if (request.action === "add" || request.action === "update") {
+      await this.storage.projectRepository.addOrUpdateProject(
+        request.branch!,
+        request.directory!,
+        request.project!,
+      );
+    } else if (request.action === "delete") {
+      await this.storage.projectRepository.deleteProject(
+        request.branch!,
+        request.directory!,
+      );
+    } else if (request.action === "addUnbound") {
+      await this.storage.projectRepository.addUnboundProject(request.project!);
+    }
+
+    // Commit the change
+    const details =
+      request.action === "addUnbound"
+        ? request.project
+        : `${request.branch}/${request.directory}`;
+    await this.git.commit(`projectChange: ${request.action} ${details}`);
   }
 
   private async moveToBackup(

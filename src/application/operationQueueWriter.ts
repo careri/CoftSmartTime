@@ -5,6 +5,7 @@ import {
   ProcessBatchRequest,
   WriteTimeReportRequest,
   UpdateProjectsRequest,
+  ProjectChangeRequest,
   HousekeepingRequest,
   InvalidRequest,
   OperationRequest,

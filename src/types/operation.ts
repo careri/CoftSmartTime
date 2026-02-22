@@ -14,6 +14,14 @@ export interface UpdateProjectsRequest {
   body: import("../storage/projectRepository").ProjectMap;
 }
 
+export interface ProjectChangeRequest {
+  type: "projectChange";
+  action: "add" | "delete" | "update" | "addUnbound";
+  branch?: string;
+  directory?: string;
+  project?: string;
+}
+
 export interface HousekeepingRequest {
   type: "housekeeping";
 }
@@ -26,5 +34,6 @@ export type OperationRequest =
   | ProcessBatchRequest
   | WriteTimeReportRequest
   | UpdateProjectsRequest
+  | ProjectChangeRequest
   | HousekeepingRequest
   | InvalidRequest;
