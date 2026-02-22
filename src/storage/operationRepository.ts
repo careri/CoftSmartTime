@@ -1,16 +1,16 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { OperationRequest } from "../types/operation";
+import { Logger } from "../utils/logger";
 
 export class OperationRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async readPendingOperations(): Promise<
@@ -33,9 +33,7 @@ export class OperationRepository {
         const request: OperationRequest = JSON.parse(content);
         operations.push({ file, request });
       } catch (error) {
-        this.outputChannel.appendLine(
-          `Error reading operation request ${file}: ${error}`,
-        );
+        this.logger.error(`Error reading operation request ${file}: ${error}`);
         // Treat invalid JSON as an invalid request that will fail processing
         operations.push({ file, request: { type: "invalid" } });
       }
@@ -49,9 +47,7 @@ export class OperationRepository {
     try {
       await fs.unlink(filePath);
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Error deleting operation request ${file}: ${error}`,
-      );
+      this.logger.error(`Error deleting operation request ${file}: ${error}`);
     }
   }
 

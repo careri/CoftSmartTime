@@ -8,8 +8,10 @@ import { OperationQueueProcessor } from "./application/operationQueueProcessor";
 import { OperationQueueWriter } from "./application/operationQueueWriter";
 import { TimeReportProvider } from "./presentation/timeReport";
 import { TimeSummaryProvider } from "./presentation/timeSummary";
+import { Logger } from "./utils/logger";
 
 let outputChannel: vscode.OutputChannel;
+let logger: Logger;
 let batchProcessor: BatchProcessor | null = null;
 let operationQueueProcessor: OperationQueueProcessor | null = null;
 let timeReportProvider: TimeReportProvider | null = null;
@@ -20,7 +22,11 @@ let isEnabled = false;
 
 export async function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("COFT SmartTime");
-  outputChannel.appendLine("COFT SmartTime extension activating...");
+  const debugEnabled = vscode.workspace
+    .getConfiguration("coft.smarttime")
+    .get("enableDebugLogs", false);
+  logger = new Logger(outputChannel, debugEnabled);
+  logger.info("COFT SmartTime extension activating...");
 
   // Register save hook
   const saveDisposable = vscode.workspace.onDidSaveTextDocument(
@@ -63,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await OperationQueueWriter.write(
           storage.operationRepository,
           { type: "housekeeping" },
-          outputChannel,
+          logger,
         );
       }
     },
@@ -83,8 +89,12 @@ export async function activate(context: vscode.ExtensionContext) {
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
       if (event.affectsConfiguration("coft.smarttime")) {
-        outputChannel.appendLine("Configuration changed, reinitializing...");
+        logger.info("Configuration changed, reinitializing...");
         shutdown();
+        const newDebugEnabled = vscode.workspace
+          .getConfiguration("coft.smarttime")
+          .get("enableDebugLogs", false);
+        logger = new Logger(outputChannel, newDebugEnabled);
         await initialize(context);
       }
     },
@@ -102,16 +112,16 @@ export async function activate(context: vscode.ExtensionContext) {
   // Initialize
   const initialized = await initialize(context);
   if (!initialized) {
-    outputChannel.appendLine("Extension initialization failed");
+    logger.error("Extension initialization failed");
     return;
   }
 
-  outputChannel.appendLine("COFT SmartTime extension activated successfully");
+  logger.info("COFT SmartTime extension activated successfully");
 }
 
 export function deactivate() {
   shutdown();
-  outputChannel.appendLine("COFT SmartTime extension deactivated");
+  logger.info("COFT SmartTime extension deactivated");
 }
 
 function shutdown(): void {
@@ -133,19 +143,15 @@ function shutdown(): void {
 async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
   try {
     // Get configuration
-    const configManager = new ConfigManager(outputChannel);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
-    outputChannel.appendLine(`COFT_ROOT: ${config.root}`);
-    outputChannel.appendLine(
-      `COFT_INTERVAL_SECONDS: ${config.intervalSeconds}`,
-    );
-    outputChannel.appendLine(
-      `COFT_VIEW_GROUP_BY_MINUTES: ${config.viewGroupByMinutes}`,
-    );
+    logger.info(`COFT_ROOT: ${config.root}`);
+    logger.info(`COFT_INTERVAL_SECONDS: ${config.intervalSeconds}`);
+    logger.info(`COFT_VIEW_GROUP_BY_MINUTES: ${config.viewGroupByMinutes}`);
 
     // Initialize storage
-    storage = new StorageManager(config, outputChannel);
+    storage = new StorageManager(config, logger);
     const storageInitialized = await storage.initialize();
     if (!storageInitialized) {
       return false;
@@ -153,11 +159,11 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
 
     // Initialize git
     const extensionVersion = context.extension.packageJSON.version || "0.0.1";
-    git = new GitManager(config, outputChannel, extensionVersion);
+    git = new GitManager(config, logger, extensionVersion);
     await git.initialize();
 
     // Start batch processor
-    batchProcessor = new BatchProcessor(config, storage, outputChannel);
+    batchProcessor = new BatchProcessor(config, storage, logger);
     batchProcessor.start();
 
     // Start operation queue processor
@@ -165,17 +171,17 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
       config,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     operationQueueProcessor.start();
 
     // Create time report provider
-    timeReportProvider = new TimeReportProvider(config, outputChannel);
+    timeReportProvider = new TimeReportProvider(config, logger);
 
     // Create time summary provider
     timeSummaryProvider = new TimeSummaryProvider(
       config,
-      outputChannel,
+      logger,
       async (date: Date) => {
         if (timeReportProvider) {
           await timeReportProvider.showForDate(context, date);
@@ -186,7 +192,7 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     isEnabled = true;
     return true;
   } catch (error) {
-    outputChannel.appendLine(`Initialization error: ${error}`);
+    logger.error(`Initialization error: ${error}`);
     return false;
   }
 }
@@ -208,7 +214,7 @@ async function handleFileSave(document: vscode.TextDocument): Promise<void> {
 
     await storage.writeQueueEntry(workspaceRoot, relativePath, gitBranch);
   } catch (error) {
-    outputChannel.appendLine(`Error handling file save: ${error}`);
+    logger.error(`Error handling file save: ${error}`);
     vscode.window.showErrorMessage(
       `COFT SmartTime: Failed to save time entry: ${error}`,
     );

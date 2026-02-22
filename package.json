@@ -106,6 +106,11 @@
           ],
           "default": "auto",
           "description": "Start of week for time summary. 'auto' uses culture default (Sunday for en-US, Monday otherwise)."
+        },
+        "coft.smarttime.enableDebugLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for the extension."
         }
       }
     }

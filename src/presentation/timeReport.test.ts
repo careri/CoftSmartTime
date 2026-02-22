@@ -5,11 +5,13 @@ import * as path from "path";
 import * as os from "os";
 import { TimeReportProvider } from "./timeReport";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 suite("TimeReport Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
   let provider: TimeReportProvider;
 
   setup(async () => {
@@ -41,7 +43,8 @@ suite("TimeReport Test Suite", () => {
     await fs.mkdir(path.join(testConfig.data, "reports"), { recursive: true });
 
     outputChannel = vscode.window.createOutputChannel("TimeReport Test");
-    provider = new TimeReportProvider(testConfig, outputChannel);
+    logger = new Logger(outputChannel, true);
+    provider = new TimeReportProvider(testConfig, logger);
   });
 
   teardown(async () => {

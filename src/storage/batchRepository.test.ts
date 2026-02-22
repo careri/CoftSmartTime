@@ -7,6 +7,7 @@ import { BatchRepository } from "./batchRepository";
 import { BatchService } from "../services/batchService";
 import { CoftConfig } from "../application/config";
 import { QueueEntry, BatchEntry } from "./storage";
+import { Logger } from "../utils/logger";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {
@@ -31,6 +32,7 @@ suite("BatchRepository Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
   let repository: BatchRepository;
   let service: BatchService;
 
@@ -40,8 +42,9 @@ suite("BatchRepository Test Suite", () => {
 
     testConfig = createTestConfig(testRoot);
     outputChannel = vscode.window.createOutputChannel("BatchRepository Test");
-    repository = new BatchRepository(testConfig, outputChannel);
-    service = new BatchService(testConfig, outputChannel);
+    logger = new Logger(outputChannel, true);
+    repository = new BatchRepository(testConfig, logger);
+    service = new BatchService(testConfig, logger);
 
     // Create necessary directories
     await fs.mkdir(testConfig.queueBatch, { recursive: true });

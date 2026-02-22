@@ -5,11 +5,13 @@ import * as path from "path";
 import * as os from "os";
 import { GitManager } from "./git";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 suite("Git Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
 
   setup(async () => {
     testRoot = path.join(os.tmpdir(), `coft-git-test-${Date.now()}`);
@@ -34,6 +36,7 @@ suite("Git Test Suite", () => {
 
     await fs.mkdir(testConfig.data, { recursive: true });
     outputChannel = vscode.window.createOutputChannel("Git Test");
+    logger = new Logger(outputChannel, true);
   });
 
   teardown(async () => {
@@ -45,7 +48,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should initialize a new git repo", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // .git directory should exist
@@ -55,14 +58,14 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should not fail on double initialize", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
     // Should not throw on second init
     await git.initialize();
   });
 
   test("GitManager should commit files with version as message", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.2.3");
+    const git = new GitManager(testConfig, logger, "1.2.3");
     await git.initialize();
 
     // Create a file to commit
@@ -83,7 +86,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should commit with custom message", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     const testFile = path.join(testConfig.data, "test.txt");
@@ -102,7 +105,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should handle no-changes commit gracefully", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Commit with no changes should not throw
@@ -110,7 +113,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should recover from broken git repo", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Create a file and commit so there's data to preserve
@@ -141,7 +144,7 @@ suite("Git Test Suite", () => {
     // Remove the data directory entirely
     await fs.rm(testConfig.data, { recursive: true, force: true });
 
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     const gitDir = path.join(testConfig.data, ".git");
@@ -150,7 +153,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager commit should recover from broken repo", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Break the git repo
@@ -172,7 +175,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should initialize backup bare repo", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Backup directory should exist with a bare repo
@@ -192,7 +195,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager housekeeping should push to backup", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Create a file and commit
@@ -215,7 +218,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager isFirstCommitToday should return true when no housekeeping file exists", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     const isFirst = await git.isFirstCommitToday();
@@ -223,7 +226,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager isFirstCommitToday should return false after housekeeping today", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Write today's date to .last-housekeeping
@@ -236,7 +239,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager isFirstCommitToday should return true when housekeeping was yesterday", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Write yesterday's date to .last-housekeeping
@@ -251,7 +254,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager housekeeping should write last-housekeeping file", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Create a file and commit so backup push works
@@ -269,7 +272,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager double initialize should not duplicate origin", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
     await git.initialize();
 
@@ -288,7 +291,7 @@ suite("Git Test Suite", () => {
   });
 
   test("GitManager should recover from broken backup bare repo", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Break the backup bare repo by corrupting HEAD
@@ -314,7 +317,7 @@ suite("Git Test Suite", () => {
   });
 
   test("exportTimeReports does nothing when exportDir is empty", async () => {
-    const git = new GitManager(testConfig, outputChannel, "1.0.0");
+    const git = new GitManager(testConfig, logger, "1.0.0");
     await git.initialize();
 
     // Should not throw
@@ -325,7 +328,7 @@ suite("Git Test Suite", () => {
     const exportDir = path.join(testRoot, "export");
     const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
 
-    const git = new GitManager(config, outputChannel, "1.0.0");
+    const git = new GitManager(config, logger, "1.0.0");
     await git.initialize();
 
     // Create a report for today
@@ -361,7 +364,7 @@ suite("Git Test Suite", () => {
     const exportDir = path.join(testRoot, "export");
     const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 10 };
 
-    const git = new GitManager(config, outputChannel, "1.0.0");
+    const git = new GitManager(config, logger, "1.0.0");
     await git.initialize();
 
     // Create a report for 30 days ago
@@ -390,7 +393,7 @@ suite("Git Test Suite", () => {
     const exportDir = path.join(testRoot, "export");
     const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
 
-    const git = new GitManager(config, outputChannel, "1.0.0");
+    const git = new GitManager(config, logger, "1.0.0");
     await git.initialize();
 
     // Create a report for today
@@ -431,7 +434,7 @@ suite("Git Test Suite", () => {
     const exportDir = path.join(testRoot, "export");
     const config = { ...testConfig, exportDir: exportDir, exportAgeDays: 90 };
 
-    const git = new GitManager(config, outputChannel, "1.0.0");
+    const git = new GitManager(config, logger, "1.0.0");
     await git.initialize();
 
     // No reports directory exists — should not throw

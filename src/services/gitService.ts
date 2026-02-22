@@ -2,14 +2,15 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 export class GitService {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async exportTimeReports(): Promise<void> {
@@ -17,7 +18,7 @@ export class GitService {
       return;
     }
 
-    this.outputChannel.appendLine("Exporting time reports...");
+    this.logger.info("Exporting time reports...");
 
     try {
       await fs.mkdir(this.config.exportDir, { recursive: true });
@@ -26,9 +27,7 @@ export class GitService {
       try {
         await fs.access(reportsDir);
       } catch {
-        this.outputChannel.appendLine(
-          "No reports directory found, skipping export",
-        );
+        this.logger.info("No reports directory found, skipping export");
         return;
       }
 
@@ -85,9 +84,9 @@ export class GitService {
         }
       }
 
-      this.outputChannel.appendLine(`Exported ${exportedCount} time report(s)`);
+      this.logger.info(`Exported ${exportedCount} time report(s)`);
     } catch (error) {
-      this.outputChannel.appendLine(`Export failed: ${error}`);
+      this.logger.error(`Export failed: ${error}`);
       vscode.window.showWarningMessage(
         `COFT SmartTime: Failed to export time reports: ${error}`,
       );

@@ -13,13 +13,14 @@ import {
   ProjectChangeRequest,
   OperationRequest,
 } from "../types/operation";
+import { Logger } from "../utils/logger";
 
 export class OperationQueueProcessor {
   private config: CoftConfig;
   private git: GitManager;
   private storage: StorageManager;
   private lock: FileLock;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
   private operationRepository: OperationRepository;
   private timer: NodeJS.Timeout | null = null;
   private failureCounts: Map<string, number> = new Map();
@@ -31,20 +32,18 @@ export class OperationQueueProcessor {
     config: CoftConfig,
     git: GitManager,
     storage: StorageManager,
-    outputChannel: vscode.OutputChannel,
+    logger: Logger,
   ) {
     this.config = config;
     this.git = git;
     this.storage = storage;
-    this.lock = new FileLock(this.config.data, outputChannel);
-    this.outputChannel = outputChannel;
-    this.operationRepository = new OperationRepository(config, outputChannel);
+    this.lock = new FileLock(this.config.data, logger);
+    this.logger = logger;
+    this.operationRepository = new OperationRepository(config, logger);
   }
 
   start(): void {
-    this.outputChannel.appendLine(
-      "Starting operation queue processor (10s interval)",
-    );
+    this.logger.info("Starting operation queue processor (10s interval)");
     this.timer = setInterval(() => this.processQueue(), this.intervalMs);
   }
 
@@ -52,7 +51,7 @@ export class OperationQueueProcessor {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-      this.outputChannel.appendLine("Operation queue processor stopped");
+      this.logger.info("Operation queue processor stopped");
     }
   }
 
@@ -69,15 +68,13 @@ export class OperationQueueProcessor {
         return;
       }
 
-      this.outputChannel.appendLine(
+      this.logger.info(
         `--- Processing ${operations.length} operation request(s) ---`,
       );
 
       const lockAcquired = await this.lock.acquire(1000);
       if (!lockAcquired) {
-        this.outputChannel.appendLine(
-          "Failed to acquire lock, skipping processing",
-        );
+        this.logger.error("Failed to acquire lock, skipping processing");
         return;
       }
 
@@ -89,13 +86,9 @@ export class OperationQueueProcessor {
         await this.lock.release();
       }
 
-      this.outputChannel.appendLine(
-        "--- Operation queue processing completed ---",
-      );
+      this.logger.info("--- Operation queue processing completed ---");
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Error processing operation queue: ${error}`,
-      );
+      this.logger.error(`Error processing operation queue: ${error}`);
     } finally {
       this.processing = false;
     }
@@ -115,15 +108,11 @@ export class OperationQueueProcessor {
           if (result.collected) {
             await this.git.commit("housekeeping: batch collection");
           } else {
-            this.outputChannel.appendLine(
-              "No batch entries to collect during housekeeping",
-            );
+            this.logger.info("No batch entries to collect during housekeeping");
           }
           await this.git.housekeeping();
         } else {
-          this.outputChannel.appendLine(
-            "Housekeeping already done today, skipping",
-          );
+          this.logger.info("Housekeeping already done today, skipping");
         }
       } else if (request.type === "projectChange") {
         await this.processProjectChange(request);
@@ -140,7 +129,7 @@ export class OperationQueueProcessor {
         request.type === "timereport" || request.type === "projects"
           ? ` - ${request.file}`
           : "";
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Operation request processed: ${filename} (${request.type}${fileInfo})`,
       );
 
@@ -148,20 +137,18 @@ export class OperationQueueProcessor {
       if (request.type !== "housekeeping") {
         const firstToday = await this.git.isFirstCommitToday();
         if (firstToday) {
-          this.outputChannel.appendLine(
-            "First commit of the day, queuing housekeeping...",
-          );
+          this.logger.debug("First commit of the day, queuing housekeeping...");
           await OperationQueueWriter.write(
             this.operationRepository,
             { type: "housekeeping" },
-            this.outputChannel,
+            this.logger,
           );
         }
       }
     } catch (error) {
       const count = (this.failureCounts.get(filename) || 0) + 1;
       this.failureCounts.set(filename, count);
-      this.outputChannel.appendLine(
+      this.logger.error(
         `Error processing operation request ${filename} (attempt ${count}/${this.maxFailures}): ${error}`,
       );
 
@@ -173,15 +160,15 @@ export class OperationQueueProcessor {
   }
 
   private async processProcessBatch(): Promise<void> {
-    this.outputChannel.appendLine("Moving files from queue to batch...");
+    this.logger.debug("Moving files from queue to batch...");
     const movedFiles = await this.storage.moveQueueToBatch();
 
     if (movedFiles.length === 0) {
-      this.outputChannel.appendLine("No batch files to process");
+      this.logger.info("No batch files to process");
       return;
     }
 
-    this.outputChannel.appendLine("Generating batch entry...");
+    this.logger.debug("Generating batch entry...");
     const entries = await this.storage.readBatchFiles();
 
     if (entries.length === 0) {
@@ -218,9 +205,9 @@ export class OperationQueueProcessor {
 
     await this.git.commit(`processBatch: batches/${batchFilename}`);
 
-    this.outputChannel.appendLine("Deleting batch files...");
+    this.logger.debug("Deleting batch files...");
     await this.storage.deleteBatchFiles();
-    this.outputChannel.appendLine(`Batch entry committed: ${batchFilename}`);
+    this.logger.info(`Batch entry committed: ${batchFilename}`);
   }
 
   private async processFileRequest(
@@ -274,16 +261,12 @@ export class OperationQueueProcessor {
     try {
       await fs.rename(requestPath, backupPath);
       this.failureCounts.delete(filename);
-      this.outputChannel.appendLine(
-        `Operation request moved to backup: ${filename}`,
-      );
+      this.logger.info(`Operation request moved to backup: ${filename}`);
       vscode.window.showErrorMessage(
         `COFT SmartTime: Operation request failed too many times and was moved to backup: ${filename}`,
       );
     } catch (moveError) {
-      this.outputChannel.appendLine(
-        `Error moving request to backup: ${moveError}`,
-      );
+      this.logger.error(`Error moving request to backup: ${moveError}`);
     }
   }
 }

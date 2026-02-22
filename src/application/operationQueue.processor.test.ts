@@ -9,6 +9,7 @@ import { WriteTimeReportRequest } from "../types/operation";
 import { GitManager } from "../storage/git";
 import { StorageManager } from "../storage/storage";
 import { CoftConfig } from "./config";
+import { Logger } from "../utils/logger";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {
@@ -33,6 +34,7 @@ suite("OperationQueueProcessor Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
 
   setup(async () => {
     testRoot = path.join(
@@ -44,6 +46,7 @@ suite("OperationQueueProcessor Test Suite", () => {
     outputChannel = vscode.window.createOutputChannel(
       "OperationQueueProcessor Test",
     );
+    logger = new Logger(outputChannel, true);
 
     // Pre-set housekeeping date so processing doesn't auto-queue housekeeping
     await fs.mkdir(testConfig.data, { recursive: true });
@@ -67,9 +70,9 @@ suite("OperationQueueProcessor Test Suite", () => {
     // Initialize git repo
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // Write a timereport request
@@ -82,7 +85,7 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       request,
-      outputChannel,
+      logger,
     );
 
     // Process the queue
@@ -90,7 +93,7 @@ suite("OperationQueueProcessor Test Suite", () => {
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -114,9 +117,9 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should process multiple requests in order", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     await OperationQueueWriter.write(
@@ -126,7 +129,7 @@ suite("OperationQueueProcessor Test Suite", () => {
         file: "reports/2026/02/15.json",
         body: { date: "2026-02-15", entries: [] },
       },
-      outputChannel,
+      logger,
     );
     await OperationQueueWriter.write(
       storage.operationRepository,
@@ -135,14 +138,14 @@ suite("OperationQueueProcessor Test Suite", () => {
         file: "projects.json",
         body: { branch1: { dir1: "proj1" } },
       },
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -170,16 +173,16 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should skip when queue dir does not exist", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     // Should not throw
     await processor.processQueue();
@@ -189,16 +192,16 @@ suite("OperationQueueProcessor Test Suite", () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
     await fs.mkdir(testConfig.operationQueue, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -212,9 +215,9 @@ suite("OperationQueueProcessor Test Suite", () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
     await fs.mkdir(testConfig.operationQueue, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // Write a request file with invalid JSON so parsing always fails
@@ -229,7 +232,7 @@ suite("OperationQueueProcessor Test Suite", () => {
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
 
     // Process 5 times to hit max failures
@@ -248,7 +251,7 @@ suite("OperationQueueProcessor Test Suite", () => {
   });
 
   test("OperationQueueProcessor request filename uses timestamp pattern", async () => {
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     const request: WriteTimeReportRequest = {
@@ -260,7 +263,7 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       request,
-      outputChannel,
+      logger,
     );
 
     const files = await fs.readdir(testConfig.operationQueue);
@@ -276,9 +279,9 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor creates target subdirectories", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     const request: WriteTimeReportRequest = {
@@ -289,14 +292,14 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       request,
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -315,9 +318,9 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should process ProcessBatchRequest", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // Write some queue entries that the batch processor would normally create
@@ -328,14 +331,14 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       { type: "processBatch" },
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -371,23 +374,23 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should handle ProcessBatchRequest with empty queue", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // Write a ProcessBatchRequest with no queue files
     await OperationQueueWriter.write(
       storage.operationRepository,
       { type: "processBatch" },
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -399,9 +402,9 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should process HousekeepingRequest", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // Remove .last-housekeeping so housekeeping actually runs
@@ -421,14 +424,14 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       { type: "housekeeping" },
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 
@@ -446,9 +449,9 @@ suite("OperationQueueProcessor Test Suite", () => {
   test("OperationQueueProcessor should skip housekeeping if already done today", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
-    const git = new GitManager(testConfig, outputChannel, "0.0.1");
+    const git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     // .last-housekeeping is already set to today by setup
@@ -457,14 +460,14 @@ suite("OperationQueueProcessor Test Suite", () => {
     await OperationQueueWriter.write(
       storage.operationRepository,
       { type: "housekeeping" },
-      outputChannel,
+      logger,
     );
 
     const processor = new OperationQueueProcessor(
       testConfig,
       git,
       storage,
-      outputChannel,
+      logger,
     );
     await processor.processQueue();
 

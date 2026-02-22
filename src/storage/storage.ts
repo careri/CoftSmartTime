@@ -1,6 +1,5 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { BatchRepository } from "./batchRepository";
 import { QueueRepository } from "./queueRepository";
@@ -8,6 +7,7 @@ import { OperationRepository } from "./operationRepository";
 import { ProjectRepository } from "./projectRepository";
 import { TimeReportRepository } from "./timeReportRepository";
 import { BatchService } from "../services/batchService";
+import { Logger } from "../utils/logger";
 
 export interface CollectBatchesResult {
   collected: boolean;
@@ -34,7 +34,7 @@ export interface BatchEntry {
 
 export class StorageManager {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
   public batchRepository: BatchRepository;
   private queueRepository: QueueRepository;
   public operationRepository: OperationRepository;
@@ -42,15 +42,15 @@ export class StorageManager {
   public timeReportRepository: TimeReportRepository;
   private batchService: BatchService;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
-    this.batchRepository = new BatchRepository(config, outputChannel);
-    this.queueRepository = new QueueRepository(config, outputChannel);
-    this.operationRepository = new OperationRepository(config, outputChannel);
-    this.projectRepository = new ProjectRepository(config, outputChannel);
+    this.logger = logger;
+    this.batchRepository = new BatchRepository(config, logger);
+    this.queueRepository = new QueueRepository(config, logger);
+    this.operationRepository = new OperationRepository(config, logger);
+    this.projectRepository = new ProjectRepository(config, logger);
     this.timeReportRepository = new TimeReportRepository(config);
-    this.batchService = new BatchService(config, outputChannel);
+    this.batchService = new BatchService(config, logger);
   }
 
   async initialize(): Promise<boolean> {
@@ -59,7 +59,7 @@ export class StorageManager {
       try {
         await fs.access(this.config.root);
       } catch {
-        this.outputChannel.appendLine(
+        this.logger.info(
           `COFT_ROOT directory does not exist, creating: ${this.config.root}`,
         );
         await fs.mkdir(this.config.root, { recursive: true });
@@ -75,10 +75,10 @@ export class StorageManager {
       await this.ensureDirectory(path.join(this.config.data, "batches"));
       await this.ensureDirectory(path.join(this.config.data, "reports"));
 
-      this.outputChannel.appendLine("Storage initialized successfully");
+      this.logger.info("Storage initialized successfully");
       return true;
     } catch (error) {
-      this.outputChannel.appendLine(`Error initializing storage: ${error}`);
+      this.logger.error(`Error initializing storage: ${error}`);
       return false;
     }
   }
@@ -87,9 +87,7 @@ export class StorageManager {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Error creating directory ${dir}: ${error}`,
-      );
+      this.logger.error(`Error creating directory ${dir}: ${error}`);
       throw error;
     }
   }

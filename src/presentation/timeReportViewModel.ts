@@ -1,4 +1,3 @@
-import * as vscode from "vscode";
 import * as path from "path";
 import { CoftConfig } from "../application/config";
 import { OperationRepository } from "../storage/operationRepository";
@@ -6,16 +5,17 @@ import { OperationQueueWriter } from "../application/operationQueueWriter";
 import { OperationRequest } from "../types/operation";
 import { TimeReport } from "../storage/batchRepository";
 import { SavedTimeReport } from "../storage/timeReportRepository";
+import { Logger } from "../utils/logger";
 
 export class TimeReportViewModel {
   private report: TimeReport | null = null;
   private operationQueue: OperationRequest[] = [];
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
   private operationRepository: OperationRepository;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
-    this.operationRepository = new OperationRepository(config, outputChannel);
+  constructor(config: CoftConfig, logger: Logger) {
+    this.logger = logger;
+    this.operationRepository = new OperationRepository(config, logger);
   }
 
   private buildSavedReport(reportData: TimeReport): SavedTimeReport {
@@ -40,7 +40,7 @@ export class TimeReportViewModel {
       await OperationQueueWriter.write(
         this.operationRepository,
         op,
-        this.outputChannel,
+        this.logger,
       );
     }
     this.operationQueue = [];
@@ -65,7 +65,7 @@ export class TimeReportViewModel {
           file: reportFile,
           body: this.buildSavedReport(this.report),
         },
-        this.outputChannel,
+        this.logger,
       );
     }
   }

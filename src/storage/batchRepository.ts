@@ -1,8 +1,8 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { QueueEntry, BatchEntry } from "./storage";
+import { Logger } from "../utils/logger";
 
 export interface FileDetail {
   file: string;
@@ -30,11 +30,11 @@ export interface TimeReport {
 
 export class BatchRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async readBatchFiles(): Promise<QueueEntry[]> {
@@ -48,9 +48,7 @@ export class BatchRepository {
         const content = await fs.readFile(filePath, "utf-8");
         entries.push(JSON.parse(content) as QueueEntry);
       } catch (error) {
-        this.outputChannel.appendLine(
-          `Error reading batch file ${file}: ${error}`,
-        );
+        this.logger.error(`Error reading batch file ${file}: ${error}`);
       }
     }
 

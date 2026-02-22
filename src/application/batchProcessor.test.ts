@@ -6,11 +6,13 @@ import * as os from "os";
 import { StorageManager, BatchEntry } from "../storage/storage";
 import { GitManager } from "../storage/git";
 import { CoftConfig } from "./config";
+import { Logger } from "../utils/logger";
 
 suite("Batch Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
   let storage: StorageManager;
   let git: GitManager;
 
@@ -36,10 +38,11 @@ suite("Batch Test Suite", () => {
     };
 
     outputChannel = vscode.window.createOutputChannel("Batch Test");
-    storage = new StorageManager(testConfig, outputChannel);
+    logger = new Logger(outputChannel, true);
+    storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
-    git = new GitManager(testConfig, outputChannel, "0.0.1");
+    git = new GitManager(testConfig, logger, "0.0.1");
     await git.initialize();
   });
 

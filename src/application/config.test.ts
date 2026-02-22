@@ -3,11 +3,13 @@ import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
 import { ConfigManager, getStartDayOfWeek } from "./config";
+import { Logger } from "../utils/logger";
 
 suite("Config Test Suite", () => {
   test("ConfigManager should return valid config", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     assert.ok(config);
@@ -22,7 +24,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager should validate intervalSeconds", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     assert.ok(config);
@@ -32,7 +35,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager should validate viewGroupByMinutes", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     assert.ok(config);
@@ -43,7 +47,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager should use default root when not configured", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     const expectedDefault = path.join(os.homedir(), ".coft.smarttime");
@@ -52,7 +57,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager should derive subdirectory paths from root", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     assert.strictEqual(config.queue, path.join(config.root, "queue"));
@@ -77,7 +83,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager getConfig should never return null", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     // getConfig always returns a valid CoftConfig
@@ -87,7 +94,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager isValidPath should reject relative paths", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
 
     // Access private method via any cast for testing
     const isValidPath = (configManager as any).isValidPath.bind(configManager);
@@ -99,7 +107,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager isValidPath should reject paths with null bytes", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
 
     const isValidPath = (configManager as any).isValidPath.bind(configManager);
 
@@ -108,7 +117,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager isValidPath should accept valid absolute paths", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
 
     const isValidPath = (configManager as any).isValidPath.bind(configManager);
 
@@ -118,7 +128,8 @@ suite("Config Test Suite", () => {
 
   test("ConfigManager should return branchTaskUrl from config", () => {
     const outputChannel = vscode.window.createOutputChannel("Test");
-    const configManager = new ConfigManager(outputChannel);
+    const logger = new Logger(outputChannel, true);
+    const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
 
     assert.strictEqual(typeof config.branchTaskUrl, "string");

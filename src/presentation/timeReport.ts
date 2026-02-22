@@ -11,6 +11,7 @@ import {
   SavedTimeReport,
 } from "../storage/timeReportRepository";
 import { ProjectRepository, ProjectMap } from "../storage/projectRepository";
+import { Logger } from "../utils/logger";
 import {
   OverviewEntry,
   ProjectGroup,
@@ -22,7 +23,7 @@ const DEFAULT_BRANCHES = ["main", "master", "no-branch"];
 
 export class TimeReportProvider {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
   private currentDate: Date;
   private panel: vscode.WebviewPanel | null = null;
   private defaultBranchProjects: { [compositeKey: string]: string } = {};
@@ -36,14 +37,14 @@ export class TimeReportProvider {
   private operationRepository: OperationRepository;
   private batchService: BatchService;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
     this.currentDate = new Date();
     this.timeReportRepository = new TimeReportRepository(config);
-    this.projectRepository = new ProjectRepository(config, outputChannel);
-    this.operationRepository = new OperationRepository(config, outputChannel);
-    this.batchService = new BatchService(config, outputChannel);
+    this.projectRepository = new ProjectRepository(config, logger);
+    this.operationRepository = new OperationRepository(config, logger);
+    this.batchService = new BatchService(config, logger);
   }
 
   private async processQueue(): Promise<void> {
@@ -340,7 +341,7 @@ export class TimeReportProvider {
             action: "addUnbound",
             project: project,
           },
-          this.outputChannel,
+          this.logger,
         );
       }
       await this.updateView();
@@ -356,7 +357,7 @@ export class TimeReportProvider {
         directory: directory,
         project: project,
       },
-      this.outputChannel,
+      this.logger,
     );
     // Refresh view to update timetable project columns
     await this.updateView();
@@ -686,7 +687,7 @@ export class TimeReportProvider {
         file: reportFile,
         body: this.buildSavedReport(reportData),
       },
-      this.outputChannel,
+      this.logger,
     );
   }
 
@@ -711,14 +712,14 @@ export class TimeReportProvider {
               directory: entry.directory,
               project: entry.project,
             },
-            this.outputChannel,
+            this.logger,
           );
         }
       }
 
       vscode.window.showInformationMessage("Time report saved successfully");
     } catch (error) {
-      this.outputChannel.appendLine(`Error saving time report: ${error}`);
+      this.logger.error(`Error saving time report: ${error}`);
       vscode.window.showErrorMessage(`Failed to save time report: ${error}`);
     }
   }

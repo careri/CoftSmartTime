@@ -1,17 +1,17 @@
 import * as fs from "fs/promises";
 import * as crypto from "crypto";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { QueueEntry } from "./storage";
+import { Logger } from "../utils/logger";
 
 export class QueueRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async addEntry(
@@ -37,7 +37,7 @@ export class QueueRepository {
 
     await this.ensureDirectory(this.config.queue);
     await fs.writeFile(queueFilePath, JSON.stringify(entry, null, 2), "utf-8");
-    this.outputChannel.appendLine(`Queue entry created: ${filename}`);
+    this.logger.debug(`Queue entry created: ${filename}`);
   }
 
   async moveToBatch(): Promise<string[]> {
@@ -53,13 +53,11 @@ export class QueueRepository {
         await fs.rename(srcPath, destPath);
         movedFiles.push(file);
       } catch (error) {
-        this.outputChannel.appendLine(`Error moving file ${file}: ${error}`);
+        this.logger.error(`Error moving file ${file}: ${error}`);
       }
     }
 
-    this.outputChannel.appendLine(
-      `Moved ${movedFiles.length} files from queue to batch`,
-    );
+    this.logger.info(`Moved ${movedFiles.length} files from queue to batch`);
     return movedFiles;
   }
 
@@ -74,15 +72,11 @@ export class QueueRepository {
       try {
         await fs.rename(srcPath, destPath);
       } catch (error) {
-        this.outputChannel.appendLine(
-          `Error moving file ${file} back to queue: ${error}`,
-        );
+        this.logger.error(`Error moving file ${file} back to queue: ${error}`);
       }
     }
 
-    this.outputChannel.appendLine(
-      `Moved ${files.length} files from batch back to queue`,
-    );
+    this.logger.info(`Moved ${files.length} files from batch back to queue`);
   }
 
   async moveToBackup(): Promise<void> {
@@ -96,15 +90,11 @@ export class QueueRepository {
       try {
         await fs.rename(srcPath, destPath);
       } catch (error) {
-        this.outputChannel.appendLine(
-          `Error moving file ${file} to backup: ${error}`,
-        );
+        this.logger.error(`Error moving file ${file} to backup: ${error}`);
       }
     }
 
-    this.outputChannel.appendLine(
-      `Moved ${files.length} files from batch to backup`,
-    );
+    this.logger.info(`Moved ${files.length} files from batch to backup`);
   }
 
   async deleteBatchFiles(): Promise<void> {
@@ -116,11 +106,11 @@ export class QueueRepository {
       try {
         await fs.unlink(filePath);
       } catch (error) {
-        this.outputChannel.appendLine(`Error deleting file ${file}: ${error}`);
+        this.logger.error(`Error deleting file ${file}: ${error}`);
       }
     }
 
-    this.outputChannel.appendLine(`Deleted ${files.length} files from batch`);
+    this.logger.debug(`Deleted ${files.length} files from batch`);
   }
 
   async hasQueueFiles(): Promise<boolean> {
@@ -136,9 +126,7 @@ export class QueueRepository {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Error creating directory ${dir}: ${error}`,
-      );
+      this.logger.error(`Error creating directory ${dir}: ${error}`);
       throw error;
     }
   }

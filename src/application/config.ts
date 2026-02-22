@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
+import { Logger } from "../utils/logger";
 
 export interface CoftConfig {
   root: string;
@@ -32,10 +33,10 @@ export function getStartDayOfWeek(startOfWeek: string): number {
 }
 
 export class ConfigManager {
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(outputChannel: vscode.OutputChannel) {
-    this.outputChannel = outputChannel;
+  constructor(logger: Logger) {
+    this.logger = logger;
   }
 
   getConfig(): CoftConfig {
@@ -50,7 +51,7 @@ export class ConfigManager {
 
     // Validate root path
     if (!this.isValidPath(root)) {
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Warning: coft.smarttime.root is not a valid path: ${root}. Using default: ${defaultRoot}`,
       );
       root = defaultRoot;
@@ -59,7 +60,7 @@ export class ConfigManager {
     // Validate interval seconds
     let intervalSeconds = config.get<number>("intervalSeconds", 60);
     if (intervalSeconds < 60 || intervalSeconds > 300) {
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Warning: intervalSeconds (${intervalSeconds}) is out of range. Using default value: 60`,
       );
       intervalSeconds = 60;
@@ -72,7 +73,7 @@ export class ConfigManager {
       viewGroupByMinutes > 60 ||
       60 % viewGroupByMinutes !== 0
     ) {
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Warning: viewGroupByMinutes (${viewGroupByMinutes}) is invalid. Using default value: 15`,
       );
       viewGroupByMinutes = 15;
@@ -84,7 +85,7 @@ export class ConfigManager {
     // Get export directory
     let exportDir = config.get<string>("exportDir", "");
     if (exportDir && !this.isValidPath(exportDir)) {
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Warning: coft.smarttime.exportDir is not a valid path: ${exportDir}. Export disabled.`,
       );
       exportDir = "";
@@ -93,7 +94,7 @@ export class ConfigManager {
     // Get export age days
     let exportAgeDays = config.get<number>("exportAgeDays", 90);
     if (exportAgeDays < 1) {
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Warning: exportAgeDays (${exportAgeDays}) is invalid. Using default value: 90`,
       );
       exportAgeDays = 90;

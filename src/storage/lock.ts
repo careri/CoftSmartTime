@@ -1,14 +1,14 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
+import { Logger } from "../utils/logger";
 
 export class FileLock {
   private lockFile: string;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(lockDir: string, outputChannel: vscode.OutputChannel) {
+  constructor(lockDir: string, logger: Logger) {
     this.lockFile = path.join(lockDir, ".lock");
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async acquire(timeoutMs: number = 1000): Promise<boolean> {
@@ -18,7 +18,7 @@ export class FileLock {
       try {
         // Try to create lock file exclusively
         await fs.writeFile(this.lockFile, String(process.pid), { flag: "wx" });
-        this.outputChannel.appendLine("Lock acquired");
+        this.logger.debug("Lock acquired");
         return true;
       } catch (error: any) {
         if (error.code === "EEXIST") {
@@ -45,22 +45,22 @@ export class FileLock {
           // Wait a bit before retrying
           await this.sleep(100);
         } else {
-          this.outputChannel.appendLine(`Error acquiring lock: ${error}`);
+          this.logger.error(`Error acquiring lock: ${error}`);
           return false;
         }
       }
     }
 
-    this.outputChannel.appendLine("Failed to acquire lock within timeout");
+    this.logger.info("Failed to acquire lock within timeout");
     return false;
   }
 
   async release(): Promise<void> {
     try {
       await fs.unlink(this.lockFile);
-      this.outputChannel.appendLine("Lock released");
+      this.logger.debug("Lock released");
     } catch (error) {
-      this.outputChannel.appendLine(`Error releasing lock: ${error}`);
+      this.logger.error(`Error releasing lock: ${error}`);
     }
   }
 

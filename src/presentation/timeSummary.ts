@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CoftConfig, getStartDayOfWeek } from "../application/config";
 import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
+import { Logger } from "../utils/logger";
 
 interface SummaryEntry {
   project: string;
@@ -32,7 +33,7 @@ export class TimeSummaryProvider {
 
   constructor(
     config: CoftConfig,
-    _outputChannel: vscode.OutputChannel,
+    _logger: Logger,
     openTimeReportCallback?: (date: Date) => Promise<void>,
   ) {
     this.config = config;

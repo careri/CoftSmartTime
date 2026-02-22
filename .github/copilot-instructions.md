@@ -14,16 +14,17 @@ The extension follows a pipeline architecture with repository pattern for data a
 4. **Services** → encapsulate business logic:
    - `BatchService` → batch collection and merging operations (`src/services/batchService.ts`)
    - `GitService` → git export operations (`src/services/gitService.ts`)
-5. **Repositories** → encapsulate data access for different domains:
+5. **Logger** → centralized logging utility with configurable debug levels and timestamped output (`src/utils/logger.ts`)
+6. **Repositories** → encapsulate data access for different domains:
    - `BatchRepository` → reads batch files (`src/storage/batchRepository.ts`)
    - `TimeReportRepository` → reads saved time reports (`src/storage/timeReportRepository.ts`)
    - `ProjectRepository` → reads project mappings (`src/storage/projectRepository.ts`)
    - `OperationRepository` → reads pending operation requests (`src/storage/operationRepository.ts`)
    - `GitRepository` → handles git-related file operations (`src/storage/gitRepository.ts`)
-6. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`, `src/presentation/timeReportViewModel.ts`)
-7. **TimeSummaryProvider** → webview UI for time summary view with project aggregation, date filtering, and clickable dates to open time reports (`src/presentation/timeSummary.ts`)
+7. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`, `src/presentation/timeReportViewModel.ts`)
+8. **TimeSummaryProvider** → webview UI for time summary view with project aggregation, date filtering, and clickable dates to open time reports (`src/presentation/timeSummary.ts`)
 
-All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety. Project mappings are updated incrementally via `ProjectChangeRequest` to avoid concurrency issues with full file rewrites.
+All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety. Project mappings are updated incrementally via `ProjectChangeRequest` to avoid concurrency issues with full file rewrites. All logging is centralized through the Logger utility with configurable debug output.
 
 ## Source Layout
 
@@ -47,6 +48,8 @@ src/
   services/
     batchService.ts      – Batch collection and merging business logic
     gitService.ts        – Git export business logic
+  utils/
+    logger.ts            – Centralized logging utility with debug control and timestamps
   presentation/
     timeReport.ts        – TimeReportProvider (webview panel, HTML generation, and state management)
     timeReportViewModel.ts – TimeReportViewModel (state management for reports)
@@ -111,6 +114,7 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 | `coft.smarttime.exportDir`          | (empty)             | Export directory for time reports       |
 | `coft.smarttime.exportAgeDays`      | 90                  | How far back to export                  |
 | `coft.smarttime.startOfWeek`        | auto                | Start of week (auto/sunday/monday)      |
+| `coft.smarttime.enableDebugLogs`    | false               | Enable debug-level logging output       |
 
 ## Commands
 

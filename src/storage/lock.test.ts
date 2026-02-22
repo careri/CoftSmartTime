@@ -4,15 +4,18 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { FileLock } from "./lock";
+import { Logger } from "../utils/logger";
 
 suite("Lock Test Suite", () => {
   let testDir: string;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
 
   setup(async () => {
     testDir = path.join(os.tmpdir(), `coft-lock-test-${Date.now()}`);
     await fs.mkdir(testDir, { recursive: true });
     outputChannel = vscode.window.createOutputChannel("Lock Test");
+    logger = new Logger(outputChannel, true);
   });
 
   teardown(async () => {
@@ -24,7 +27,7 @@ suite("Lock Test Suite", () => {
   });
 
   test("FileLock should acquire and release lock", async () => {
-    const lock = new FileLock(testDir, outputChannel);
+    const lock = new FileLock(testDir, logger);
 
     const acquired = await lock.acquire(1000);
     assert.strictEqual(acquired, true);
@@ -46,8 +49,8 @@ suite("Lock Test Suite", () => {
   });
 
   test("FileLock should fail when lock is already held", async () => {
-    const lock1 = new FileLock(testDir, outputChannel);
-    const lock2 = new FileLock(testDir, outputChannel);
+    const lock1 = new FileLock(testDir, logger);
+    const lock2 = new FileLock(testDir, logger);
 
     const acquired1 = await lock1.acquire(1000);
     assert.strictEqual(acquired1, true);
@@ -60,8 +63,8 @@ suite("Lock Test Suite", () => {
   });
 
   test("FileLock should succeed after previous lock is released", async () => {
-    const lock1 = new FileLock(testDir, outputChannel);
-    const lock2 = new FileLock(testDir, outputChannel);
+    const lock1 = new FileLock(testDir, logger);
+    const lock2 = new FileLock(testDir, logger);
 
     const acquired1 = await lock1.acquire(1000);
     assert.strictEqual(acquired1, true);
@@ -77,7 +80,7 @@ suite("Lock Test Suite", () => {
     const lockPath = path.join(testDir, ".lock");
     await fs.writeFile(lockPath, "999999999", "utf-8");
 
-    const lock = new FileLock(testDir, outputChannel);
+    const lock = new FileLock(testDir, logger);
     const acquired = await lock.acquire(1000);
     assert.strictEqual(acquired, true);
 
@@ -85,7 +88,7 @@ suite("Lock Test Suite", () => {
   });
 
   test("FileLock should store current PID in lock file", async () => {
-    const lock = new FileLock(testDir, outputChannel);
+    const lock = new FileLock(testDir, logger);
     await lock.acquire(1000);
 
     const lockPath = path.join(testDir, ".lock");

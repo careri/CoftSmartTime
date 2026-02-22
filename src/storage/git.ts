@@ -6,26 +6,23 @@ import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { GitRepository } from "./gitRepository";
 import { GitService } from "../services/gitService";
+import { Logger } from "../utils/logger";
 
 const execAsync = promisify(exec);
 
 export class GitManager {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
   private extensionVersion: string;
   private gitRepository: GitRepository;
   private gitService: GitService;
 
-  constructor(
-    config: CoftConfig,
-    outputChannel: vscode.OutputChannel,
-    extensionVersion: string,
-  ) {
+  constructor(config: CoftConfig, logger: Logger, extensionVersion: string) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
     this.extensionVersion = extensionVersion;
     this.gitRepository = new GitRepository(config);
-    this.gitService = new GitService(config, outputChannel);
+    this.gitService = new GitService(config, logger);
   }
 
   async initialize(): Promise<void> {
@@ -33,7 +30,7 @@ export class GitManager {
       await this.ensureRepo();
       await this.ensureBackupRepo();
     } catch (error) {
-      this.outputChannel.appendLine(`Error initializing git: ${error}`);
+      this.logger.error(`Error initializing git: ${error}`);
       throw error;
     }
   }
@@ -69,7 +66,7 @@ export class GitManager {
     await this.execGit('config user.name "COFT SmartTime"');
     await this.execGit('config user.email "smarttime@coft.local"');
     await this.writeGitignore();
-    this.outputChannel.appendLine("Git repository initialized");
+    this.logger.info("Git repository initialized");
   }
 
   private async writeGitignore(): Promise<void> {
@@ -83,9 +80,7 @@ export class GitManager {
       .replace("T", "_")
       .replace("Z", "");
     const backupPath = `${this.config.data}_backup_${timestamp}`;
-    this.outputChannel.appendLine(
-      `Git repository is broken, backing up to: ${backupPath}`,
-    );
+    this.logger.error(`Git repository is broken, backing up to: ${backupPath}`);
     vscode.window.showWarningMessage(
       `COFT SmartTime: Git repo was broken. Backed up to ${backupPath}`,
     );
@@ -104,7 +99,7 @@ export class GitManager {
       // Check if there are changes to commit
       try {
         await this.execGit("diff --cached --exit-code");
-        this.outputChannel.appendLine("No changes to commit");
+        this.logger.debug("No changes to commit");
         return;
       } catch {
         // There are changes, proceed with commit
@@ -113,9 +108,9 @@ export class GitManager {
       // Commit with extension version as message
       const commitMessage = message || this.extensionVersion;
       await this.execGit(`commit -m "${commitMessage}"`);
-      this.outputChannel.appendLine(`Git commit created: ${commitMessage}`);
+      this.logger.info(`Git commit created: ${commitMessage}`);
     } catch (error) {
-      this.outputChannel.appendLine(`Error creating git commit: ${error}`);
+      this.logger.error(`Error creating git commit: ${error}`);
       throw error;
     }
   }
@@ -148,7 +143,7 @@ export class GitManager {
     // HEAD exists — verify it's healthy
     try {
       await execAsync("git rev-parse --git-dir", { cwd: this.config.backup });
-      this.outputChannel.appendLine("Backup bare repository already exists");
+      this.logger.info("Backup bare repository already exists");
     } catch {
       // Broken bare repo — back it up and reinitialize
       await this.backupBrokenBackupRepo();
@@ -161,7 +156,7 @@ export class GitManager {
   private async initBareRepo(): Promise<void> {
     await fs.mkdir(this.config.backup, { recursive: true });
     await execAsync("git init --bare", { cwd: this.config.backup });
-    this.outputChannel.appendLine("Backup bare repository initialized");
+    this.logger.info("Backup bare repository initialized");
   }
 
   private async backupBrokenBackupRepo(): Promise<void> {
@@ -171,9 +166,7 @@ export class GitManager {
       .replace("T", "_")
       .replace("Z", "");
     const brokenPath = `${this.config.backup}_broken_${timestamp}`;
-    this.outputChannel.appendLine(
-      `Backup bare repo is broken, renaming to: ${brokenPath}`,
-    );
+    this.logger.error(`Backup bare repo is broken, renaming to: ${brokenPath}`);
     vscode.window.showWarningMessage(
       `COFT SmartTime: Backup repo was broken. Renamed to ${brokenPath}`,
     );
@@ -187,30 +180,30 @@ export class GitManager {
       const { stdout } = await this.execGit("remote get-url origin");
       if (stdout.trim() !== this.config.backup) {
         await this.execGit(`remote set-url origin "${this.config.backup}"`);
-        this.outputChannel.appendLine("Updated origin to backup repo");
+        this.logger.info("Updated origin to backup repo");
       }
     } catch {
       await this.execGit(`remote add origin "${this.config.backup}"`);
-      this.outputChannel.appendLine("Added origin pointing to backup repo");
+      this.logger.info("Added origin pointing to backup repo");
     }
   }
 
   async housekeeping(): Promise<void> {
-    this.outputChannel.appendLine("--- Starting housekeeping ---");
+    this.logger.info("--- Starting housekeeping ---");
 
     try {
       // git gc in data repo
-      this.outputChannel.appendLine("Running git gc...");
+      this.logger.debug("Running git gc...");
       await this.execGit("gc --auto");
-      this.outputChannel.appendLine("git gc completed");
+      this.logger.debug("git gc completed");
 
       // git push to backup
-      this.outputChannel.appendLine("Pushing to backup...");
+      this.logger.debug("Pushing to backup...");
       try {
         await this.execGit("push origin --all");
-        this.outputChannel.appendLine("Push to backup completed");
+        this.logger.debug("Push to backup completed");
       } catch (error) {
-        this.outputChannel.appendLine(`Push to backup failed: ${error}`);
+        this.logger.error(`Push to backup failed: ${error}`);
         vscode.window.showWarningMessage(
           `COFT SmartTime: Failed to push to backup: ${error}`,
         );
@@ -223,9 +216,9 @@ export class GitManager {
       const today = new Date().toISOString().split("T")[0];
       await this.gitRepository.writeHousekeeping(today);
 
-      this.outputChannel.appendLine("--- Housekeeping completed ---");
+      this.logger.info("--- Housekeeping completed ---");
     } catch (error) {
-      this.outputChannel.appendLine(`Housekeeping error: ${error}`);
+      this.logger.error(`Housekeeping error: ${error}`);
       vscode.window.showErrorMessage(
         `COFT SmartTime: Housekeeping failed: ${error}`,
       );

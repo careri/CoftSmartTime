@@ -39,6 +39,7 @@ coft.smarttime should be the id of the extension.
 - ✅ Incremental project mapping updates: Replaced full projects.json writes with atomic ProjectChangeRequest operations for better concurrency
 - ✅ Start of week configuration for time summary (auto, sunday, monday with culture default)
 - ✅ Build linting that fails on unused variables, methods, classes, and imports
+- ✅ Centralized logging system with configurable debug levels and timestamped output
 
 ### Implementation Files
 
@@ -60,6 +61,7 @@ coft.smarttime should be the id of the extension.
 - `src/services/gitService.ts` - Git export business logic
 - `src/presentation/timeReport.ts` - Time report view
 - `src/presentation/timeSummary.ts` - Time summary view
+- `src/utils/logger.ts` - Centralized logging utility with debug control and timestamps
 - `src/extension.ts` - Main extension entry point
 - `src/application/config.test.ts` - Configuration tests
 - `src/storage/storage.test.ts` - Storage tests
@@ -221,6 +223,7 @@ Batches are stored in COFT_DATA/batches
 - Configure COFT_BRANCH_TASK_URL, optional. If set it should be a url where the branch can be injected. E.g. https://ctek-jira.atlassian.net/browse/{branch}
 - Configure COFT_EXPORT_DIR, optional. Must be a valid parsable path. If set, time reports are exported during housekeeping.
 - Configure COFT_EXPORT_AGE_DAYS, optional. Defines how far back in time to export. Default 90.
+- Configure COFT_ENABLE_DEBUG_LOGS, optional boolean. Enables debug-level logging output. Default false.
 
 ## VS Code Commands
 

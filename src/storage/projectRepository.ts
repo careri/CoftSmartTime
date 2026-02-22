@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 export interface ProjectMap {
   [branch: string]: {
@@ -11,11 +11,11 @@ export interface ProjectMap {
 
 export class ProjectRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async readProjects(): Promise<ProjectMap> {
@@ -30,7 +30,7 @@ export class ProjectRepository {
         for (const key of Object.keys(parsed)) {
           if (key === "_unbound") {
             if (!Array.isArray(parsed[key])) {
-              this.outputChannel.appendLine(
+              this.logger.error(
                 "projects.json _unbound is not an array, ignoring",
               );
               delete parsed[key];
@@ -38,7 +38,7 @@ export class ProjectRepository {
             continue;
           }
           if (typeof parsed[key] !== "object" || parsed[key] === null) {
-            this.outputChannel.appendLine(
+            this.logger.error(
               "projects.json has unexpected format, treating as empty",
             );
             valid = false;

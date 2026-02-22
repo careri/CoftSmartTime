@@ -5,6 +5,7 @@ import * as path from "path";
 import * as os from "os";
 import { ProjectRepository } from "./projectRepository";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {
@@ -29,6 +30,7 @@ suite("ProjectRepository Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
   let repository: ProjectRepository;
 
   setup(async () => {
@@ -37,7 +39,8 @@ suite("ProjectRepository Test Suite", () => {
 
     testConfig = createTestConfig(testRoot);
     outputChannel = vscode.window.createOutputChannel("ProjectRepository Test");
-    repository = new ProjectRepository(testConfig, outputChannel);
+    logger = new Logger(outputChannel, true);
+    repository = new ProjectRepository(testConfig, logger);
 
     // Create data directory
     await fs.mkdir(testConfig.data, { recursive: true });

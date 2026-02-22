@@ -10,6 +10,7 @@ import {
   UpdateProjectsRequest,
 } from "../types/operation";
 import { CoftConfig } from "./config";
+import { Logger } from "../utils/logger";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {
@@ -34,6 +35,7 @@ suite("OperationQueueWriter Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
   let operationRepository: OperationRepository;
 
   setup(async () => {
@@ -46,7 +48,8 @@ suite("OperationQueueWriter Test Suite", () => {
     outputChannel = vscode.window.createOutputChannel(
       "OperationQueueWriter Test",
     );
-    operationRepository = new OperationRepository(testConfig, outputChannel);
+    logger = new Logger(outputChannel, true);
+    operationRepository = new OperationRepository(testConfig, logger);
   });
 
   teardown(async () => {
@@ -64,11 +67,7 @@ suite("OperationQueueWriter Test Suite", () => {
       body: { date: "2026-02-15", entries: [] },
     };
 
-    await OperationQueueWriter.write(
-      operationRepository,
-      request,
-      outputChannel,
-    );
+    await OperationQueueWriter.write(operationRepository, request, logger);
 
     const files = await fs.readdir(testConfig.operationQueue);
     assert.strictEqual(files.length, 1);
@@ -93,11 +92,7 @@ suite("OperationQueueWriter Test Suite", () => {
       body: { date: "2026-02-15", entries: [] },
     };
 
-    await OperationQueueWriter.write(
-      operationRepository,
-      request,
-      outputChannel,
-    );
+    await OperationQueueWriter.write(operationRepository, request, logger);
 
     const files = await fs.readdir(testConfig.operationQueue);
     assert.strictEqual(files.length, 1);
@@ -116,16 +111,8 @@ suite("OperationQueueWriter Test Suite", () => {
       body: { branch: { dir: "project" } },
     };
 
-    await OperationQueueWriter.write(
-      operationRepository,
-      request1,
-      outputChannel,
-    );
-    await OperationQueueWriter.write(
-      operationRepository,
-      request2,
-      outputChannel,
-    );
+    await OperationQueueWriter.write(operationRepository, request1, logger);
+    await OperationQueueWriter.write(operationRepository, request2, logger);
 
     const files = await fs.readdir(testConfig.operationQueue);
     assert.strictEqual(files.length, 2);
@@ -152,7 +139,7 @@ suite("OperationQueueWriter Test Suite", () => {
     await OperationQueueWriter.write(
       operationRepository,
       { type: "processBatch" },
-      outputChannel,
+      logger,
     );
 
     const files = await fs.readdir(testConfig.operationQueue);
@@ -170,7 +157,7 @@ suite("OperationQueueWriter Test Suite", () => {
     await OperationQueueWriter.write(
       operationRepository,
       { type: "housekeeping" },
-      outputChannel,
+      logger,
     );
 
     const files = await fs.readdir(testConfig.operationQueue);

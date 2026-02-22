@@ -5,6 +5,7 @@ import * as path from "path";
 import * as os from "os";
 import { StorageManager } from "./storage";
 import { CoftConfig } from "../application/config";
+import { Logger } from "../utils/logger";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {
@@ -31,6 +32,7 @@ suite("Storage Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
+  let logger: Logger;
 
   setup(async () => {
     testRoot = path.join(os.tmpdir(), `coft-test-${Date.now()}`);
@@ -39,6 +41,7 @@ suite("Storage Test Suite", () => {
     testConfig = createTestConfig(testRoot);
 
     outputChannel = vscode.window.createOutputChannel("Test");
+    logger = new Logger(outputChannel, true);
   });
 
   teardown(async () => {
@@ -50,7 +53,7 @@ suite("Storage Test Suite", () => {
   });
 
   test("StorageManager should initialize directories", async () => {
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     const result = await storage.initialize();
 
     assert.strictEqual(result, true);
@@ -94,7 +97,7 @@ suite("Storage Test Suite", () => {
       startOfWeek: "auto",
     };
 
-    const storage = new StorageManager(autoConfig, outputChannel);
+    const storage = new StorageManager(autoConfig, logger);
     const result = await storage.initialize();
 
     assert.strictEqual(result, true);
@@ -106,7 +109,7 @@ suite("Storage Test Suite", () => {
   });
 
   test("StorageManager should write queue entry", async () => {
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     await storage.writeQueueEntry("/test/workspace", "test.txt", "main");
@@ -127,7 +130,7 @@ suite("Storage Test Suite", () => {
   });
 
   test("StorageManager should move queue to batch", async () => {
-    const storage = new StorageManager(testConfig, outputChannel);
+    const storage = new StorageManager(testConfig, logger);
     await storage.initialize();
 
     await storage.writeQueueEntry("/test/workspace", "test1.txt", "main");
@@ -149,7 +152,7 @@ suite("Storage Test Suite", () => {
       `coft-ensure-dir-test-${Date.now()}`,
     );
     const isolatedConfig = createTestConfig(isolatedRoot);
-    const storage = new StorageManager(isolatedConfig, outputChannel);
+    const storage = new StorageManager(isolatedConfig, logger);
     // Do not call initialize - directory won't exist yet
 
     await storage.writeQueueEntry("/test/workspace", "test.txt", "main");

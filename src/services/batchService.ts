@@ -1,17 +1,17 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 import { TimeReport } from "../storage/batchRepository";
 import { CollectBatchesResult, BatchEntry } from "../storage/storage";
+import { Logger } from "../utils/logger";
 
 export class BatchService {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
+  private logger: Logger;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig, logger: Logger) {
     this.config = config;
-    this.outputChannel = outputChannel;
+    this.logger = logger;
   }
 
   async collectAndMergeBatches(): Promise<CollectBatchesResult> {
@@ -123,7 +123,7 @@ export class BatchService {
       await fs.mkdir(targetDir, { recursive: true });
       await fs.writeFile(targetPath, JSON.stringify(merged, null, 2), "utf-8");
 
-      this.outputChannel.appendLine(
+      this.logger.info(
         `Collected ${files.length} batch file(s) into batches/${year}/${month}/${day}.json`,
       );
     }
@@ -133,7 +133,7 @@ export class BatchService {
       await fs.unlink(path.join(batchesDir, file));
     }
 
-    this.outputChannel.appendLine(
+    this.logger.info(
       `Batch collection completed: ${batchFiles.length} file(s) processed`,
     );
     return { collected: true, filesProcessed: batchFiles.length };
@@ -229,9 +229,7 @@ export class BatchService {
         }
       }
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Error merging batches into report: ${error}`,
-      );
+      this.logger.error(`Error merging batches into report: ${error}`);
     }
 
     report.entries.sort((a, b) => a.key.localeCompare(b.key));
