@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -96,6 +96,16 @@
           "default": 90,
           "minimum": 1,
           "description": "How far back in time (days) to export time reports. Default 90."
+        },
+        "coft.smarttime.startOfWeek": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "sunday",
+            "monday"
+          ],
+          "default": "auto",
+          "description": "Start of week for time summary. 'auto' uses culture default (Sunday for en-US, Monday otherwise)."
         }
       }
     }

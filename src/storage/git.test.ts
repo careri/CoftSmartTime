@@ -29,6 +29,7 @@ suite("Git Test Suite", () => {
       branchTaskUrl: "",
       exportDir: "",
       exportAgeDays: 90,
+      startOfWeek: "auto",
     };
 
     await fs.mkdir(testConfig.data, { recursive: true });

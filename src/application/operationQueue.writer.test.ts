@@ -26,6 +26,7 @@ function createTestConfig(testRoot: string): CoftConfig {
     branchTaskUrl: "",
     exportDir: "",
     exportAgeDays: 90,
+    startOfWeek: "auto",
   };
 }
 

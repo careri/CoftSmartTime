@@ -21,6 +21,7 @@ function createTestConfig(testRoot: string): CoftConfig {
     branchTaskUrl: "",
     exportDir: "",
     exportAgeDays: 90,
+    startOfWeek: "auto",
   };
 }
 
@@ -90,6 +91,7 @@ suite("Storage Test Suite", () => {
       branchTaskUrl: "",
       exportDir: "",
       exportAgeDays: 90,
+      startOfWeek: "auto",
     };
 
     const storage = new StorageManager(autoConfig, outputChannel);

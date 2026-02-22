@@ -16,6 +16,19 @@ export interface CoftConfig {
   branchTaskUrl: string;
   exportDir: string;
   exportAgeDays: number;
+  startOfWeek: string;
+}
+
+export function getStartDayOfWeek(startOfWeek: string): number {
+  if (startOfWeek === "sunday") {
+    return 0;
+  }
+  if (startOfWeek === "monday") {
+    return 1;
+  }
+  // For auto, approximate culture default
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+  return locale.startsWith("en-US") ? 0 : 1; // Sunday for US, Monday for others
 }
 
 export class ConfigManager {
@@ -86,6 +99,9 @@ export class ConfigManager {
       exportAgeDays = 90;
     }
 
+    // Get start of week
+    const startOfWeek = config.get<string>("startOfWeek", "auto");
+
     return {
       root,
       queue: path.join(root, "queue"),
@@ -100,6 +116,7 @@ export class ConfigManager {
       branchTaskUrl,
       exportDir,
       exportAgeDays,
+      startOfWeek,
     };
   }
 

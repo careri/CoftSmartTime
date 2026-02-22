@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { CoftConfig } from "../application/config";
+import { CoftConfig, getStartDayOfWeek } from "../application/config";
 import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
 
@@ -47,10 +47,13 @@ export class TimeSummaryProvider {
 
   private setCurrentWeek(): void {
     const now = new Date();
+    const startDay = getStartDayOfWeek(this.config.startOfWeek);
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek - startDay;
     const start = new Date(now);
-    start.setDate(now.getDate() - now.getDay()); // Sunday
+    start.setDate(now.getDate() - (diff < 0 ? diff + 7 : diff));
     const end = new Date(start);
-    end.setDate(start.getDate() + 6); // Saturday
+    end.setDate(start.getDate() + 6);
     this.startDate = start;
     this.endDate = end;
   }

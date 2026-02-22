@@ -30,6 +30,7 @@ suite("TimeReport Test Suite", () => {
       branchTaskUrl: "",
       exportDir: "",
       exportAgeDays: 90,
+      startOfWeek: "auto",
     };
 
     await fs.mkdir(testConfig.queue, { recursive: true });

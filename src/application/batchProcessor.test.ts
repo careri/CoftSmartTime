@@ -32,6 +32,7 @@ suite("Batch Test Suite", () => {
       branchTaskUrl: "",
       exportDir: "",
       exportAgeDays: 90,
+      startOfWeek: "auto",
     };
 
     outputChannel = vscode.window.createOutputChannel("Batch Test");

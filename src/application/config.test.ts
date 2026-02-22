@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
-import { ConfigManager } from "./config";
+import { ConfigManager, getStartDayOfWeek } from "./config";
 
 suite("Config Test Suite", () => {
   test("ConfigManager should return valid config", () => {
@@ -122,5 +122,20 @@ suite("Config Test Suite", () => {
     const config = configManager.getConfig();
 
     assert.strictEqual(typeof config.branchTaskUrl, "string");
+  });
+});
+
+suite("getStartDayOfWeek Test Suite", () => {
+  test("getStartDayOfWeek should return 0 for sunday", () => {
+    assert.strictEqual(getStartDayOfWeek("sunday"), 0);
+  });
+
+  test("getStartDayOfWeek should return 1 for monday", () => {
+    assert.strictEqual(getStartDayOfWeek("monday"), 1);
+  });
+
+  test("getStartDayOfWeek should return culture default for auto", () => {
+    const result = getStartDayOfWeek("auto");
+    assert.ok(result === 0 || result === 1); // Should be 0 or 1
   });
 });
