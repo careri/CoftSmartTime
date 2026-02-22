@@ -22,6 +22,7 @@ export default [
           format: ["camelCase", "PascalCase"],
         },
       ],
+      "@typescript-eslint/no-unused-vars": "error",
 
       curly: "warn",
       eqeqeq: "warn",

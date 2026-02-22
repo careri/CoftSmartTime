@@ -1,46 +1,20 @@
 import * as vscode from "vscode";
-import * as fs from "fs/promises";
 import * as path from "path";
 import { CoftConfig } from "../application/config";
 import { OperationRepository } from "../storage/operationRepository";
 import { OperationQueueWriter } from "../application/operationQueueWriter";
 import { OperationRequest } from "../types/operation";
-import {
-  BatchRepository,
-  TimeEntry,
-  TimeReport,
-  FileDetail,
-} from "../storage/batchRepository";
-import {
-  TimeReportRepository,
-  SavedTimeEntry,
-  SavedTimeReport,
-} from "../storage/timeReportRepository";
-import { ProjectRepository, ProjectMap } from "../storage/projectRepository";
-import {
-  OverviewEntry,
-  ProjectGroup,
-  OverviewData,
-  QueuedOperation,
-} from "./types";
+import { TimeReport } from "../storage/batchRepository";
+import { SavedTimeReport } from "../storage/timeReportRepository";
 
 export class TimeReportViewModel {
   private report: TimeReport | null = null;
-  private projects: ProjectMap | null = null;
   private operationQueue: OperationRequest[] = [];
-  private config: CoftConfig;
   private outputChannel: vscode.OutputChannel;
-  private batchRepository: BatchRepository;
-  private timeReportRepository: TimeReportRepository;
-  private projectRepository: ProjectRepository;
   private operationRepository: OperationRepository;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
-    this.config = config;
     this.outputChannel = outputChannel;
-    this.batchRepository = new BatchRepository(config, outputChannel);
-    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
-    this.projectRepository = new ProjectRepository(config, outputChannel);
     this.operationRepository = new OperationRepository(config, outputChannel);
   }
 

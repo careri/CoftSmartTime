@@ -110,6 +110,7 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 | `coft.smarttime.branchTaskUrl`      | (empty)             | URL pattern with `{branch}` placeholder |
 | `coft.smarttime.exportDir`          | (empty)             | Export directory for time reports       |
 | `coft.smarttime.exportAgeDays`      | 90                  | How far back to export                  |
+| `coft.smarttime.startOfWeek`        | auto                | Start of week (auto/sunday/monday)      |
 
 ## Commands
 
@@ -134,4 +135,5 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 - All public methods that write to disk go through `OperationQueueWriter`
 - Repositories are CRUD only; any business logic should go to the wrapper service
 - Unit tests are created without asking; ask before changing non-test code
+- Build fails on unused variables, methods, classes, and imports (TypeScript noUnusedLocals/noUnusedParameters, ESLint no-unused-vars)
 - Keep responses brief

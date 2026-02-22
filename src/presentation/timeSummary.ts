@@ -22,7 +22,6 @@ interface SummaryData {
 
 export class TimeSummaryProvider {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
   private startDate: Date;
   private endDate: Date;
   private panel: vscode.WebviewPanel | null = null;
@@ -33,13 +32,12 @@ export class TimeSummaryProvider {
 
   constructor(
     config: CoftConfig,
-    outputChannel: vscode.OutputChannel,
+    _outputChannel: vscode.OutputChannel,
     openTimeReportCallback?: (date: Date) => Promise<void>,
   ) {
     this.config = config;
-    this.outputChannel = outputChannel;
     this.openTimeReportCallback = openTimeReportCallback;
-    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
+    this.timeReportRepository = new TimeReportRepository(config);
     this.startDate = new Date();
     this.endDate = new Date();
     this.setCurrentWeek();
@@ -251,10 +249,7 @@ export class TimeSummaryProvider {
       const isWeekend =
         new Date(report.date).getDay() === 0 ||
         new Date(report.date).getDay() === 6;
-      let totalSlots = 0;
-      for (const entry of report.entries) {
-        totalSlots += 1;
-      }
+      let totalSlots = report.entries.length;
       const dayOfWeek = new Date(report.date).toLocaleDateString(undefined, {
         weekday: "short",
       });

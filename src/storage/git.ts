@@ -24,7 +24,7 @@ export class GitManager {
     this.config = config;
     this.outputChannel = outputChannel;
     this.extensionVersion = extensionVersion;
-    this.gitRepository = new GitRepository(config, outputChannel);
+    this.gitRepository = new GitRepository(config);
     this.gitService = new GitService(config, outputChannel);
   }
 

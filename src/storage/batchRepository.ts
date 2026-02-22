@@ -2,7 +2,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
-import { QueueEntry, BatchEntry, CollectBatchesResult } from "./storage";
+import { QueueEntry, BatchEntry } from "./storage";
 
 export interface FileDetail {
   file: string;

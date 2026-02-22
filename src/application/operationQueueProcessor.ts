@@ -8,12 +8,9 @@ import { StorageManager, BatchEntry } from "../storage/storage";
 import { OperationRepository } from "../storage/operationRepository";
 import { OperationQueueWriter } from "./operationQueueWriter";
 import {
-  ProcessBatchRequest,
   WriteTimeReportRequest,
   UpdateProjectsRequest,
   ProjectChangeRequest,
-  HousekeepingRequest,
-  InvalidRequest,
   OperationRequest,
 } from "../types/operation";
 

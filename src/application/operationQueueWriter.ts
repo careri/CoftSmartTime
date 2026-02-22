@@ -1,15 +1,6 @@
-import * as crypto from "crypto";
 import * as vscode from "vscode";
 import { OperationRepository } from "../storage/operationRepository";
-import {
-  ProcessBatchRequest,
-  WriteTimeReportRequest,
-  UpdateProjectsRequest,
-  ProjectChangeRequest,
-  HousekeepingRequest,
-  InvalidRequest,
-  OperationRequest,
-} from "../types/operation";
+import { OperationRequest } from "../types/operation";
 
 export class OperationQueueWriter {
   static async write(

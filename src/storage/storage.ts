@@ -49,12 +49,8 @@ export class StorageManager {
     this.queueRepository = new QueueRepository(config, outputChannel);
     this.operationRepository = new OperationRepository(config, outputChannel);
     this.projectRepository = new ProjectRepository(config, outputChannel);
-    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
-    this.batchService = new BatchService(
-      config,
-      this.batchRepository,
-      outputChannel,
-    );
+    this.timeReportRepository = new TimeReportRepository(config);
+    this.batchService = new BatchService(config, outputChannel);
   }
 
   async initialize(): Promise<boolean> {

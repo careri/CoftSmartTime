@@ -1,17 +1,10 @@
 import * as vscode from "vscode";
-import * as fs from "fs/promises";
 import * as path from "path";
 import { CoftConfig } from "../application/config";
 import { OperationRepository } from "../storage/operationRepository";
 import { OperationQueueWriter } from "../application/operationQueueWriter";
-import { OperationRequest } from "../types/operation";
 import { BatchService } from "../services/batchService";
-import {
-  BatchRepository,
-  TimeEntry,
-  TimeReport,
-  FileDetail,
-} from "../storage/batchRepository";
+import { TimeEntry, TimeReport } from "../storage/batchRepository";
 import {
   TimeReportRepository,
   SavedTimeEntry,
@@ -29,7 +22,6 @@ const DEFAULT_BRANCHES = ["main", "master", "no-branch"];
 
 export class TimeReportProvider {
   private config: CoftConfig;
-  private lock: null = null;
   private outputChannel: vscode.OutputChannel;
   private currentDate: Date;
   private panel: vscode.WebviewPanel | null = null;
@@ -39,7 +31,6 @@ export class TimeReportProvider {
   private processedBatchFiles: Set<string> = new Set();
   private cachedProjects: ProjectMap | null = null;
   private operationQueue: QueuedOperation[] = [];
-  private batchRepository: BatchRepository;
   private timeReportRepository: TimeReportRepository;
   private projectRepository: ProjectRepository;
   private operationRepository: OperationRepository;
@@ -49,15 +40,10 @@ export class TimeReportProvider {
     this.config = config;
     this.outputChannel = outputChannel;
     this.currentDate = new Date();
-    this.batchRepository = new BatchRepository(config, outputChannel);
-    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
+    this.timeReportRepository = new TimeReportRepository(config);
     this.projectRepository = new ProjectRepository(config, outputChannel);
     this.operationRepository = new OperationRepository(config, outputChannel);
-    this.batchService = new BatchService(
-      config,
-      this.batchRepository,
-      outputChannel,
-    );
+    this.batchService = new BatchService(config, outputChannel);
   }
 
   private async processQueue(): Promise<void> {
@@ -259,18 +245,6 @@ export class TimeReportProvider {
 
     // Full load - reset processed batch files
     this.processedBatchFiles = new Set();
-
-    const year = this.currentDate.getFullYear();
-    const month = String(this.currentDate.getMonth() + 1).padStart(2, "0");
-    const day = String(this.currentDate.getDate()).padStart(2, "0");
-
-    const reportPath = path.join(
-      this.config.data,
-      "reports",
-      String(year),
-      month,
-      `${day}.json`,
-    );
 
     let savedEntries: SavedTimeEntry[] = [];
     let savedStartOfDay: string | undefined;
@@ -677,15 +651,6 @@ export class TimeReportProvider {
       return false;
     }
     return entries[index + 1].key !== expectedNext;
-  }
-
-  private getTimeKey(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = date.getMinutes();
-    const groupSize = this.config.viewGroupByMinutes;
-    const groupedMinutes = Math.floor(minutes / groupSize) * groupSize;
-    const minutesStr = String(groupedMinutes).padStart(2, "0");
-    return `${hours}:${minutesStr}`;
   }
 
   private buildSavedReport(reportData: TimeReport): SavedTimeReport {

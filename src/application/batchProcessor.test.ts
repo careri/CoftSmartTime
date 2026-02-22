@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { StorageManager, QueueEntry, BatchEntry } from "../storage/storage";
+import { StorageManager, BatchEntry } from "../storage/storage";
 import { GitManager } from "../storage/git";
 import { CoftConfig } from "./config";
 

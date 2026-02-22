@@ -2,21 +2,15 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
-import { BatchRepository, TimeReport } from "../storage/batchRepository";
+import { TimeReport } from "../storage/batchRepository";
 import { CollectBatchesResult, BatchEntry } from "../storage/storage";
 
 export class BatchService {
   private config: CoftConfig;
-  private batchRepository: BatchRepository;
   private outputChannel: vscode.OutputChannel;
 
-  constructor(
-    config: CoftConfig,
-    batchRepository: BatchRepository,
-    outputChannel: vscode.OutputChannel,
-  ) {
+  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
-    this.batchRepository = batchRepository;
     this.outputChannel = outputChannel;
   }
 

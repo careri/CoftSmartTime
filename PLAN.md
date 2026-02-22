@@ -37,6 +37,8 @@ coft.smarttime should be the id of the extension.
 - ✅ Clean architecture refactoring: logic/ → application/, services/ for business logic, repositories for data access
 - ✅ File I/O encapsulation refactoring: All direct file writes moved to repository methods, ensuring data access is abstracted through CRUD operations with strong type safety
 - ✅ Incremental project mapping updates: Replaced full projects.json writes with atomic ProjectChangeRequest operations for better concurrency
+- ✅ Start of week configuration for time summary (auto, sunday, monday with culture default)
+- ✅ Build linting that fails on unused variables, methods, classes, and imports
 
 ### Implementation Files
 
@@ -90,6 +92,7 @@ coft.smarttime should be the id of the extension.
 - COFT_VIEW_GROUP_BY_MINUTES - How the view is grouped, default 15.
 - COFT_EXPORT_DIR - Optional directory path for exporting time reports
 - COFT_EXPORT_AGE_DAYS - How far back in time to export, default 90
+- COFT_START_OF_WEEK - Start of week for time summary, default "auto" (culture default)
 
 ## Storage
 

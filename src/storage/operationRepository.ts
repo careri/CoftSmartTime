@@ -2,14 +2,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
-import {
-  ProcessBatchRequest,
-  WriteTimeReportRequest,
-  UpdateProjectsRequest,
-  HousekeepingRequest,
-  InvalidRequest,
-  OperationRequest,
-} from "../types/operation";
+import { OperationRequest } from "../types/operation";
 
 export class OperationRepository {
   private config: CoftConfig;

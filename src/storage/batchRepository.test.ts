@@ -41,7 +41,7 @@ suite("BatchRepository Test Suite", () => {
     testConfig = createTestConfig(testRoot);
     outputChannel = vscode.window.createOutputChannel("BatchRepository Test");
     repository = new BatchRepository(testConfig, outputChannel);
-    service = new BatchService(testConfig, repository, outputChannel);
+    service = new BatchService(testConfig, outputChannel);
 
     // Create necessary directories
     await fs.mkdir(testConfig.queueBatch, { recursive: true });

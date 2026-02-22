@@ -1,15 +1,12 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 
 export class GitRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig) {
     this.config = config;
-    this.outputChannel = outputChannel;
   }
 
   async writeGitignore(): Promise<void> {

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { ConfigManager, CoftConfig } from "./application/config";
+import { ConfigManager } from "./application/config";
 import { StorageManager } from "./storage/storage";
 import { GitManager } from "./storage/git";
 import { BatchProcessor } from "./application/batchProcessor";

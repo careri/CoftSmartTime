@@ -5,11 +5,7 @@ import * as path from "path";
 import * as os from "os";
 import { OperationQueueWriter } from "./operationQueueWriter";
 import { OperationQueueProcessor } from "./operationQueueProcessor";
-import { OperationRepository } from "../storage/operationRepository";
-import {
-  WriteTimeReportRequest,
-  UpdateProjectsRequest,
-} from "../types/operation";
+import { WriteTimeReportRequest } from "../types/operation";
 import { GitManager } from "../storage/git";
 import { StorageManager } from "../storage/storage";
 import { CoftConfig } from "./config";

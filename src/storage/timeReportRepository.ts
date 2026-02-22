@@ -1,6 +1,5 @@
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as vscode from "vscode";
 import { CoftConfig } from "../application/config";
 
 export interface SavedTimeEntry {
@@ -21,11 +20,9 @@ export interface SavedTimeReport {
 
 export class TimeReportRepository {
   private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(config: CoftConfig) {
     this.config = config;
-    this.outputChannel = outputChannel;
   }
 
   async readReport(date: Date): Promise<SavedTimeReport | null> {
