@@ -173,7 +173,15 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     timeReportProvider = new TimeReportProvider(config, outputChannel);
 
     // Create time summary provider
-    timeSummaryProvider = new TimeSummaryProvider(config, outputChannel);
+    timeSummaryProvider = new TimeSummaryProvider(
+      config,
+      outputChannel,
+      async (date: Date) => {
+        if (timeReportProvider) {
+          await timeReportProvider.showForDate(context, date);
+        }
+      },
+    );
 
     isEnabled = true;
     return true;

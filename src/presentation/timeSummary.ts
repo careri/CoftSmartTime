@@ -29,10 +29,16 @@ export class TimeSummaryProvider {
   private timeReportRepository: TimeReportRepository;
   private summaryData: SummaryData | null = null;
   private reports: TimeReport[] = [];
+  private openTimeReportCallback?: (date: Date) => Promise<void>;
 
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
+  constructor(
+    config: CoftConfig,
+    outputChannel: vscode.OutputChannel,
+    openTimeReportCallback?: (date: Date) => Promise<void>,
+  ) {
     this.config = config;
     this.outputChannel = outputChannel;
+    this.openTimeReportCallback = openTimeReportCallback;
     this.timeReportRepository = new TimeReportRepository(config, outputChannel);
     this.startDate = new Date();
     this.endDate = new Date();
@@ -153,6 +159,12 @@ export class TimeSummaryProvider {
               data: this.summaryData,
             });
           }
+        }
+        break;
+      case "openTimeReport":
+        if (this.openTimeReportCallback) {
+          const date = new Date(message.date);
+          await this.openTimeReportCallback(date);
         }
         break;
     }
@@ -292,7 +304,7 @@ export class TimeSummaryProvider {
         const minutes = entry.workTime % 60;
         const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
         const checked = entry.include ? "checked" : "";
-        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td>${entry.date}</td><td>${entry.dayOfWeek}</td><td>${timeStr}</td></tr>`;
+        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td><a href="#" onclick="openTimeReport('${entry.date}')">${entry.date}</a></td><td>${entry.dayOfWeek}</td><td>${timeStr}</td></tr>`;
       })
       .join("");
 
@@ -353,6 +365,9 @@ export class TimeSummaryProvider {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+        function openTimeReport(date) {
+            vscode.postMessage({ command: 'openTimeReport', date: date });
         }
         document.getElementById('currentWeek').addEventListener('click', () => vscode.postMessage({ command: 'currentWeek' }));
         document.getElementById('currentMonth').addEventListener('click', () => vscode.postMessage({ command: 'currentMonth' }));

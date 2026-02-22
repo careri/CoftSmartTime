@@ -90,8 +90,11 @@ export class TimeReportProvider {
     }
   }
 
-  async show(context: vscode.ExtensionContext): Promise<void> {
-    if (this.panel) {
+  async show(
+    context: vscode.ExtensionContext,
+    forceNew: boolean = false,
+  ): Promise<void> {
+    if (!forceNew && this.panel) {
       this.panel.reveal();
       return;
     }
@@ -134,6 +137,15 @@ export class TimeReportProvider {
     );
 
     await this.updateView();
+  }
+
+  async showForDate(
+    context: vscode.ExtensionContext,
+    date: Date,
+  ): Promise<void> {
+    this.currentDate = date;
+    this.resetViewModel();
+    await this.show(context, true);
   }
 
   private async handleMessage(message: any): Promise<void> {

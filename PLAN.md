@@ -33,6 +33,7 @@ coft.smarttime should be the id of the extension.
 - ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository, QueueRepository)
 - ✅ Edit button in timereport timetable to make branch field editable inline
 - ✅ Time summary view with project-level aggregation and date filtering
+- ✅ Clickable dates in time summary view to open time reports in new windows
 - ✅ Clean architecture refactoring: logic/ → application/, services/ for business logic, repositories for data access
 - ✅ File I/O encapsulation refactoring: All direct file writes moved to repository methods, ensuring data access is abstracted through CRUD operations with strong type safety
 - ✅ Incremental project mapping updates: Replaced full projects.json writes with atomic ProjectChangeRequest operations for better concurrency

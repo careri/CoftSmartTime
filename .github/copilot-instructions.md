@@ -21,7 +21,7 @@ The extension follows a pipeline architecture with repository pattern for data a
    - `OperationRepository` → reads pending operation requests (`src/storage/operationRepository.ts`)
    - `GitRepository` → handles git-related file operations (`src/storage/gitRepository.ts`)
 6. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`, `src/presentation/timeReportViewModel.ts`)
-7. **TimeSummaryProvider** → webview UI for time summary view with project aggregation and date filtering (`src/presentation/timeSummary.ts`)
+7. **TimeSummaryProvider** → webview UI for time summary view with project aggregation, date filtering, and clickable dates to open time reports (`src/presentation/timeSummary.ts`)
 
 All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety. Project mappings are updated incrementally via `ProjectChangeRequest` to avoid concurrency issues with full file rewrites.
 
@@ -96,7 +96,7 @@ The time summary is a webview panel showing aggregated time data over a date ran
 1. **Summary Table** – project-level time totals, sorted by time descending
 2. **Date Table** – per-date breakdown with include/exclude checkboxes (weekends excluded by default), showing date, day of week, and work time
 
-Navigation buttons allow switching between current week/month and moving forward/backward. Toggling date inclusion updates the summary table dynamically.
+Navigation buttons allow switching between current week/month and moving forward/backward. Toggling date inclusion updates the summary table dynamically. Dates in the Date Table are clickable and open the corresponding time report in a new window.
 
 Communication between the webview and extension host uses `postMessage` / `onDidReceiveMessage`.
 
