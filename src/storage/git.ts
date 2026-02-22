@@ -3,8 +3,9 @@ import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 import { GitRepository } from "./gitRepository";
+import { GitService } from "../services/gitService";
 
 const execAsync = promisify(exec);
 
@@ -13,6 +14,7 @@ export class GitManager {
   private outputChannel: vscode.OutputChannel;
   private extensionVersion: string;
   private gitRepository: GitRepository;
+  private gitService: GitService;
 
   constructor(
     config: CoftConfig,
@@ -23,6 +25,7 @@ export class GitManager {
     this.outputChannel = outputChannel;
     this.extensionVersion = extensionVersion;
     this.gitRepository = new GitRepository(config, outputChannel);
+    this.gitService = new GitService(config, outputChannel);
   }
 
   async initialize(): Promise<void> {
@@ -214,7 +217,7 @@ export class GitManager {
       }
 
       // Export time reports
-      await this.gitRepository.exportTimeReports();
+      await this.gitService.exportTimeReports();
 
       // Record successful housekeeping
       const today = new Date().toISOString().split("T")[0];
@@ -230,7 +233,7 @@ export class GitManager {
   }
 
   async exportTimeReports(): Promise<void> {
-    await this.gitRepository.exportTimeReports();
+    await this.gitService.exportTimeReports();
   }
 
   async isFirstCommitToday(): Promise<boolean> {

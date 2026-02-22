@@ -6,28 +6,31 @@ COFT SmartTime (`coft-smarttime`) is a VS Code extension that passively tracks e
 
 ## Architecture
 
-The extension follows a pipeline architecture with repository pattern for data access:
+The extension follows a pipeline architecture with repository pattern for data access and service layer for business logic:
 
 1. **Save Hook** → writes a queue entry per file save (`src/extension.ts`)
-2. **BatchProcessor** → periodically collects queue entries into batch files (`src/logic/batchProcessor.ts`)
-3. **OperationQueue** → serialises all disk/git mutations through a locked queue (`src/logic/operationQueue.ts`)
-4. **Repositories** → encapsulate data access for different domains:
-   - `BatchRepository` → reads and merges batch data into time reports (`src/storage/batchRepository.ts`)
+2. **BatchProcessor** → periodically collects queue entries into batch files (`src/application/batchProcessor.ts`)
+3. **OperationQueueWriter/Processor** → serialises all disk/git mutations through a locked queue (`src/application/operationQueueWriter.ts`, `src/application/operationQueueProcessor.ts`)
+4. **Services** → encapsulate business logic:
+   - `BatchService` → batch collection and merging operations (`src/services/batchService.ts`)
+   - `GitService` → git export operations (`src/services/gitService.ts`)
+5. **Repositories** → encapsulate data access for different domains:
+   - `BatchRepository` → reads batch files (`src/storage/batchRepository.ts`)
    - `TimeReportRepository` → reads saved time reports (`src/storage/timeReportRepository.ts`)
    - `ProjectRepository` → reads project mappings (`src/storage/projectRepository.ts`)
    - `OperationRepository` → reads pending operation requests (`src/storage/operationRepository.ts`)
    - `GitRepository` → handles git-related file operations (`src/storage/gitRepository.ts`)
-5. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`)
-6. **TimeSummaryProvider** → webview UI for time summary view with project aggregation and date filtering (`src/presentation/timeSummary.ts`)
+6. **TimeReportProvider and TimeReportViewModel** → webview UI and state management for viewing and editing reports (`src/presentation/timeReport.ts`, `src/presentation/timeReportViewModel.ts`)
+7. **TimeSummaryProvider** → webview UI for time summary view with project aggregation and date filtering (`src/presentation/timeSummary.ts`)
 
-All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances.
+All writes to `COFT_DATA` go through `OperationQueueWriter` (never direct). The queue processor acquires a file lock before processing, making it safe across multiple VS Code instances. File I/O is fully encapsulated through repository methods with strong type safety.
 
 ## Source Layout
 
 ```
 src/
   storage/
-    batchRepository.ts   – Reads batch files, merges into TimeReport model
+    batchRepository.ts   – Reads batch files
     gitRepository.ts     – Repository for git-related file operations
     operationRepository.ts – Repository for reading operation requests
     projectRepository.ts – Repository for reading project mappings
@@ -35,12 +38,17 @@ src/
     storage.ts           – Low-level file/queue operations, type definitions
     git.ts               – Git init, commit, gc, push operations
     lock.ts              – OS-agnostic file locking
-  logic/
+  application/
     batchProcessor.ts    – BatchProcessor (timer-based queue → batch)
-    operationQueue.ts    – OperationRequest types, writer, processor
+    operationQueueWriter.ts  – OperationQueueWriter (writes operation requests)
+    operationQueueProcessor.ts – OperationQueueProcessor (processes operation requests)
     config.ts            – Configuration management (reads VS Code settings)
+  services/
+    batchService.ts      – Batch collection and merging business logic
+    gitService.ts        – Git export business logic
   presentation/
-    timeReport.ts        – TimeReportProvider and TimeReportViewModel (webview panel, HTML generation, and state management)
+    timeReport.ts        – TimeReportProvider (webview panel, HTML generation, and state management)
+    timeReportViewModel.ts – TimeReportViewModel (state management for reports)
     timeSummary.ts       – TimeSummaryProvider (webview for time summary view)
   extension.ts           – Extension entry point, activation, commands
   test/
@@ -123,5 +131,6 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 - Always use curly brackets (no bracketless single-line blocks)
 - Never use the `var` keyword
 - All public methods that write to disk go through `OperationQueueWriter`
+- Repositories are CRUD only; any business logic should go to the wrapper service
 - Unit tests are created without asking; ask before changing non-test code
 - Keep responses brief

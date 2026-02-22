@@ -30,35 +30,42 @@ coft.smarttime should be the id of the extension.
 - ✅ MIT License
 - ✅ VSIX packaging support
 - ✅ UI extension kind (runs on host, works in dev containers)
-- ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository)
+- ✅ Repository pattern implementation for data access (TimeReportRepository, ProjectRepository, OperationRepository, GitRepository, QueueRepository)
 - ✅ Edit button in timereport timetable to make branch field editable inline
 - ✅ Time summary view with project-level aggregation and date filtering
+- ✅ Clean architecture refactoring: logic/ → application/, services/ for business logic, repositories for data access
+- ✅ File I/O encapsulation refactoring: All direct file writes moved to repository methods, ensuring data access is abstracted through CRUD operations with strong type safety
 
 ### Implementation Files
 
-- `src/config.ts` - Configuration management
-- `src/storage.ts` - File storage operations
-- `src/lock.ts` - File locking mechanism
-- `src/git.ts` - Git operations
-- `src/batch.ts` - Batch processing (writes ProcessBatchRequest)
-- `src/batchRepository.ts` - Batch file reading and merging operations
-- `src/operationQueue.ts` - OperationRequest types, OperationQueueWriter, OperationQueueProcessor
-- `src/timeReportRepository.ts` - Time report repository for reading saved reports
-- `src/projectRepository.ts` - Project repository for reading project mappings
-- `src/operationRepository.ts` - Operation repository for reading pending operations
-- `src/gitRepository.ts` - Git repository for file operations
-- `src/timeReport.ts` - Time report view
-- `src/timeSummary.ts` - Time summary view
+- `src/application/config.ts` - Configuration management
+- `src/storage/storage.ts` - File storage operations
+- `src/storage/lock.ts` - File locking mechanism
+- `src/storage/git.ts` - Git operations
+- `src/application/batchProcessor.ts` - Batch processing (writes ProcessBatchRequest)
+- `src/storage/batchRepository.ts` - Batch file reading operations
+- `src/services/batchService.ts` - Batch collection and merging business logic
+- `src/application/operationQueueWriter.ts` - OperationQueueWriter for queuing operations
+- `src/application/operationQueueProcessor.ts` - OperationQueueProcessor for processing operations
+- `src/storage/queueRepository.ts` - Queue repository for queue operations
+- `src/storage/timeReportRepository.ts` - Time report repository for reading saved reports
+- `src/storage/projectRepository.ts` - Project repository for reading project mappings
+- `src/storage/operationRepository.ts` - Operation repository for reading pending operations
+- `src/storage/gitRepository.ts` - Git repository for file operations
+- `src/services/gitService.ts` - Git export business logic
+- `src/presentation/timeReport.ts` - Time report view
+- `src/presentation/timeSummary.ts` - Time summary view
 - `src/extension.ts` - Main extension entry point
-- `src/test/config.test.ts` - Configuration tests
-- `src/test/storage.test.ts` - Storage tests
-- `src/test/batch.test.ts` - Batch processing tests
-- `src/test/batchRepository.test.ts` - Batch repository tests
-- `src/test/operationQueue.test.ts` - Operation queue tests
-- `src/test/extension.test.ts` - Extension tests
-- `src/test/git.test.ts` - Git tests
-- `src/test/lock.test.ts` - Lock tests
-- `src/test/timeReport.test.ts` - Time report tests
+- `src/application/config.test.ts` - Configuration tests
+- `src/storage/storage.test.ts` - Storage tests
+- `src/application/batchProcessor.test.ts` - Batch processing tests
+- `src/storage/batchRepository.test.ts` - Batch repository tests
+- `src/application/operationQueue.writer.test.ts` - Operation queue writer tests
+- `src/application/operationQueue.processor.test.ts` - Operation queue processor tests
+- `src/extension.test.ts` - Extension tests
+- `src/storage/git.test.ts` - Git tests
+- `src/storage/lock.test.ts` - Lock tests
+- `src/presentation/timeReport.test.ts` - Time report tests
 
 ## Tools
 
@@ -308,6 +315,53 @@ Group them by:
 
 - Consider adding filtering/search in time report view
 - Consider adding statistics/summary views
+
+## Restructuring Plan
+
+### When to Group Classes
+
+Small, Related Models: When classes are highly cohesive (e.g., small DTOs or related state shapes).
+Circular Dependencies: Putting classes that reference each other in the same file can sometimes resolve import-loop issues.
+Encapsulation: If a class is only a helper for another class and shouldn't be used elsewhere, keeping it private in the same file is cleaner.
+
+### Best Practices & Downsides
+
+Maintainability: Large files (over ~400 lines) are harder to navigate. Most developers prefer a one-class-per-file structure for better organization.
+ESLint Rules: Many teams use the ESLint max-classes-per-file rule to enforce a single-class limit (often set to 1 by default).
+Alternative (Barrel Files): Instead of one giant file, use an index.ts (a "barrel file") to re-export multiple classes from separate files, allowing you to import them from a single location.
+
+### Specific Changes Needed for COFT SmartTime Codebase
+
+#### File Size Issues
+
+- `src/presentation/timeReport.ts` (1512 lines): Contains `TimeReportViewModel` (67 lines) and `TimeReportProvider` (1445 lines). Split `TimeReportProvider` into multiple files or extract helper functions/classes.
+- `src/presentation/timeReport.test.ts` (1491 lines): Large test file; consider splitting into multiple test files based on functionality.
+- `src/application/operationQueue.writer.test.ts` (test lines): Tests for `OperationQueueWriter`.
+- `src/application/operationQueue.processor.test.ts` (test lines): Tests for `OperationQueueProcessor`.
+- `src/storage/git.test.ts` (439 lines): Split if testing multiple aspects.
+
+#### Multiple Classes per File
+
+- `src/presentation/timeReport.ts`: Has 2 classes. Move `TimeReportViewModel` to a separate file `src/presentation/timeReportViewModel.ts`.
+- `src/application/operationQueueWriter.ts`: Single class.
+- `src/application/operationQueueProcessor.ts`: Single class.
+
+#### Duplicated Interfaces/Types
+
+- Operation request interfaces (`ProcessBatchRequest`, `WriteTimeReportRequest`, etc.) moved to shared types file `src/types/operation.ts`.
+
+#### Barrel Files
+
+- ✅ Create `src/storage/index.ts` to re-export all repository classes for cleaner imports.
+- ✅ Create `src/application/index.ts` for application classes.
+- ✅ Create `src/presentation/index.ts` for presentation classes.
+- ✅ Create `src/services/index.ts` for service classes.
+
+#### Other Considerations
+
+- No ESLint `max-classes-per-file` rule currently set; consider adding if desired.
+- Check for circular dependencies: None apparent from imports, but monitor as restructuring occurs.
+- Small repository classes (e.g., `ProjectRepository` 57 lines) are fine separate; no need to group unless related helpers exist.
 
 ```
 

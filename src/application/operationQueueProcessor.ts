@@ -1,5 +1,4 @@
 import * as fs from "fs/promises";
-import * as crypto from "crypto";
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
@@ -7,70 +6,15 @@ import { GitManager } from "../storage/git";
 import { FileLock } from "../storage/lock";
 import { StorageManager, BatchEntry } from "../storage/storage";
 import { OperationRepository } from "../storage/operationRepository";
-
-export interface ProcessBatchRequest {
-  type: "processBatch";
-}
-
-export interface WriteTimeReportRequest {
-  type: "timereport";
-  file: string;
-  body: any;
-}
-
-export interface UpdateProjectsRequest {
-  type: "projects";
-  file: string;
-  body: any;
-}
-
-export interface HousekeepingRequest {
-  type: "housekeeping";
-}
-
-export interface InvalidRequest {
-  type: "invalid";
-}
-
-export type OperationRequest =
-  | ProcessBatchRequest
-  | WriteTimeReportRequest
-  | UpdateProjectsRequest
-  | HousekeepingRequest
-  | InvalidRequest;
-
-export class OperationQueueWriter {
-  static async write(
-    config: CoftConfig,
-    request: OperationRequest,
-    outputChannel: vscode.OutputChannel,
-  ): Promise<void> {
-    const timestamp = Date.now();
-    const fileField =
-      request.type === "processBatch" ||
-      request.type === "housekeeping" ||
-      request.type === "invalid"
-        ? request.type
-        : request.file;
-    const hash = crypto
-      .createHash("sha256")
-      .update(`${request.type}:${fileField}:${timestamp}`)
-      .digest("hex")
-      .substring(0, 12);
-    const filename = `${timestamp}_${hash}.json`;
-    const filePath = path.join(config.operationQueue, filename);
-
-    await fs.mkdir(config.operationQueue, { recursive: true });
-    await fs.writeFile(filePath, JSON.stringify(request, null, 2), "utf-8");
-    const fileInfo =
-      request.type === "timereport" || request.type === "projects"
-        ? ` - ${request.file}`
-        : "";
-    outputChannel.appendLine(
-      `Operation request created: ${filename} (${request.type}${fileInfo})`,
-    );
-  }
-}
+import { OperationQueueWriter } from "./operationQueueWriter";
+import {
+  ProcessBatchRequest,
+  WriteTimeReportRequest,
+  UpdateProjectsRequest,
+  HousekeepingRequest,
+  InvalidRequest,
+  OperationRequest,
+} from "../types/operation";
 
 export class OperationQueueProcessor {
   private config: CoftConfig;
@@ -208,7 +152,7 @@ export class OperationQueueProcessor {
             "First commit of the day, queuing housekeeping...",
           );
           await OperationQueueWriter.write(
-            this.config,
+            this.operationRepository,
             { type: "housekeeping" },
             this.outputChannel,
           );
@@ -269,14 +213,10 @@ export class OperationQueueProcessor {
     const timestamp = Date.now();
     const suffix = Math.random().toString(36).substring(2, 8);
     const batchFilename = `batch_${timestamp}_${suffix}.json`;
-    const batchFile = path.join("batches", batchFilename);
 
-    const targetPath = path.join(this.config.data, batchFile);
-    const targetDir = path.dirname(targetPath);
-    await fs.mkdir(targetDir, { recursive: true });
-    await fs.writeFile(targetPath, JSON.stringify(grouped, null, 2), "utf-8");
+    await this.storage.batchRepository.saveBatch(grouped, batchFilename);
 
-    await this.git.commit(`processBatch: ${batchFile}`);
+    await this.git.commit(`processBatch: batches/${batchFilename}`);
 
     this.outputChannel.appendLine("Deleting batch files...");
     await this.storage.deleteBatchFiles();
@@ -287,14 +227,11 @@ export class OperationQueueProcessor {
     request: WriteTimeReportRequest | UpdateProjectsRequest,
   ): Promise<void> {
     // Write the file to the data directory
-    const targetPath = path.join(this.config.data, request.file);
-    const targetDir = path.dirname(targetPath);
-    await fs.mkdir(targetDir, { recursive: true });
-    await fs.writeFile(
-      targetPath,
-      JSON.stringify(request.body, null, 2),
-      "utf-8",
-    );
+    if (request.type === "timereport") {
+      await this.storage.timeReportRepository.saveReport(request.body);
+    } else if (request.type === "projects") {
+      await this.storage.projectRepository.saveProjects(request.body);
+    }
 
     // Commit the change
     await this.git.commit(`${request.type}: ${request.file}`);

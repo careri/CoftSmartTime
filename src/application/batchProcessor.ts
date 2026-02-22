@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
 import { StorageManager } from "../storage/storage";
-import { OperationQueueWriter } from "./operationQueue";
+import { OperationQueueWriter } from "./operationQueueWriter";
 
 export class BatchProcessor {
   private config: CoftConfig;
@@ -49,7 +49,7 @@ export class BatchProcessor {
         "Queue files detected, writing ProcessBatchRequest...",
       );
       await OperationQueueWriter.write(
-        this.config,
+        this.storage.operationRepository,
         { type: "processBatch" },
         this.outputChannel,
       );

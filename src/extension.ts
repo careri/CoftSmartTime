@@ -1,13 +1,11 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { ConfigManager, CoftConfig } from "./logic/config";
+import { ConfigManager, CoftConfig } from "./application/config";
 import { StorageManager } from "./storage/storage";
 import { GitManager } from "./storage/git";
-import { BatchProcessor } from "./logic/batchProcessor";
-import {
-  OperationQueueProcessor,
-  OperationQueueWriter,
-} from "./logic/operationQueue";
+import { BatchProcessor } from "./application/batchProcessor";
+import { OperationQueueProcessor } from "./application/operationQueueProcessor";
+import { OperationQueueWriter } from "./application/operationQueueWriter";
 import { TimeReportProvider } from "./presentation/timeReport";
 import { TimeSummaryProvider } from "./presentation/timeSummary";
 
@@ -61,12 +59,13 @@ export async function activate(context: vscode.ExtensionContext) {
   const backupDisposable = vscode.commands.registerCommand(
     "coft-smarttime.backup",
     async () => {
-      const config = new ConfigManager(outputChannel).getConfig();
-      await OperationQueueWriter.write(
-        config,
-        { type: "housekeeping" },
-        outputChannel,
-      );
+      if (storage) {
+        await OperationQueueWriter.write(
+          storage.operationRepository,
+          { type: "housekeeping" },
+          outputChannel,
+        );
+      }
     },
   );
 

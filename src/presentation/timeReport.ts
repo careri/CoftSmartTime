@@ -1,130 +1,31 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { CoftConfig } from "../logic/config";
-import {
-  OperationQueueWriter,
-  OperationRequest,
-} from "../logic/operationQueue";
+import { CoftConfig } from "../application/config";
+import { OperationRepository } from "../storage/operationRepository";
+import { OperationQueueWriter } from "../application/operationQueueWriter";
+import { OperationRequest } from "../types/operation";
+import { BatchService } from "../services/batchService";
 import {
   BatchRepository,
   TimeEntry,
   TimeReport,
   FileDetail,
 } from "../storage/batchRepository";
-import { TimeReportRepository } from "../storage/timeReportRepository";
+import {
+  TimeReportRepository,
+  SavedTimeEntry,
+  SavedTimeReport,
+} from "../storage/timeReportRepository";
 import { ProjectRepository, ProjectMap } from "../storage/projectRepository";
-
-interface SavedTimeEntry {
-  key: string;
-  branch: string;
-  directory: string;
-  comment: string;
-  project: string;
-  assignedBranch?: string;
-}
-
-interface SavedTimeReport {
-  date: string;
-  entries: SavedTimeEntry[];
-  startOfDay?: string;
-  endOfDay?: string;
-}
+import {
+  OverviewEntry,
+  ProjectGroup,
+  OverviewData,
+  QueuedOperation,
+} from "./types";
 
 const DEFAULT_BRANCHES = ["main", "master", "no-branch"];
-
-interface OverviewEntry {
-  branch: string;
-  directory: string;
-  project: string;
-  timeSlots: number;
-}
-
-interface ProjectGroup {
-  project: string;
-  totalTimeSlots: number;
-  entries: OverviewEntry[];
-}
-
-interface OverviewData {
-  startOfDay: string;
-  endOfDay: string;
-  entries: OverviewEntry[];
-  groups: ProjectGroup[];
-}
-
-interface QueuedOperation {
-  type: "saveReport" | "saveProjects";
-}
-
-class TimeReportViewModel {
-  private report: TimeReport | null = null;
-  private projects: ProjectMap | null = null;
-  private operationQueue: OperationRequest[] = [];
-  private config: CoftConfig;
-  private outputChannel: vscode.OutputChannel;
-  private batchRepository: BatchRepository;
-  private timeReportRepository: TimeReportRepository;
-  private projectRepository: ProjectRepository;
-
-  constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
-    this.config = config;
-    this.outputChannel = outputChannel;
-    this.batchRepository = new BatchRepository(config, outputChannel);
-    this.timeReportRepository = new TimeReportRepository(config, outputChannel);
-    this.projectRepository = new ProjectRepository(config, outputChannel);
-  }
-
-  private buildSavedReport(reportData: TimeReport): SavedTimeReport {
-    return {
-      date: reportData.date,
-      startOfDay: reportData.startOfDay || undefined,
-      endOfDay: reportData.endOfDay || undefined,
-      entries: reportData.entries.map((entry) => ({
-        key: entry.key,
-        branch: entry.branch,
-        directory: entry.directory,
-        comment: entry.comment,
-        project: entry.project,
-        assignedBranch: entry.assignedBranch,
-      })),
-    };
-  }
-
-  async save(): Promise<void> {
-    // Write all queued operations to disk
-    for (const op of this.operationQueue) {
-      await OperationQueueWriter.write(this.config, op, this.outputChannel);
-    }
-    this.operationQueue = [];
-
-    // Then write the operation to save the report
-    if (this.report) {
-      const date = new Date(this.report.date);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const reportFile = path.join(
-        "reports",
-        String(year),
-        month,
-        `${day}.json`,
-      );
-
-      await OperationQueueWriter.write(
-        this.config,
-        {
-          type: "timereport",
-          file: reportFile,
-          body: this.buildSavedReport(this.report),
-        },
-        this.outputChannel,
-      );
-    }
-  }
-
-  // TODO: add other methods
-}
 
 export class TimeReportProvider {
   private config: CoftConfig;
@@ -141,6 +42,8 @@ export class TimeReportProvider {
   private batchRepository: BatchRepository;
   private timeReportRepository: TimeReportRepository;
   private projectRepository: ProjectRepository;
+  private operationRepository: OperationRepository;
+  private batchService: BatchService;
 
   constructor(config: CoftConfig, outputChannel: vscode.OutputChannel) {
     this.config = config;
@@ -149,6 +52,12 @@ export class TimeReportProvider {
     this.batchRepository = new BatchRepository(config, outputChannel);
     this.timeReportRepository = new TimeReportRepository(config, outputChannel);
     this.projectRepository = new ProjectRepository(config, outputChannel);
+    this.operationRepository = new OperationRepository(config, outputChannel);
+    this.batchService = new BatchService(
+      config,
+      this.batchRepository,
+      outputChannel,
+    );
   }
 
   private async processQueue(): Promise<void> {
@@ -331,7 +240,7 @@ export class TimeReportProvider {
 
     // Use cached view model if available for the same date
     if (this.viewModel !== null && this.viewModelDate === dateStr) {
-      await this.batchRepository.mergeBatchesIntoReport(
+      this.viewModel = await this.batchService.mergeBatchesIntoTimeReport(
         this.viewModel,
         this.currentDate,
         this.config.viewGroupByMinutes,
@@ -373,7 +282,7 @@ export class TimeReportProvider {
       date: this.currentDate.toISOString(),
       entries: [],
     };
-    report = await this.batchRepository.mergeBatchesIntoReport(
+    report = await this.batchService.mergeBatchesIntoTimeReport(
       report,
       this.currentDate,
       this.config.viewGroupByMinutes,
@@ -435,7 +344,7 @@ export class TimeReportProvider {
   private async saveProjects(projects: ProjectMap): Promise<void> {
     this.cachedProjects = projects;
     await OperationQueueWriter.write(
-      this.config,
+      this.operationRepository,
       { type: "projects", file: "projects.json", body: projects },
       this.outputChannel,
     );
@@ -799,7 +708,7 @@ export class TimeReportProvider {
     const reportFile = path.join("reports", String(year), month, `${day}.json`);
 
     await OperationQueueWriter.write(
-      this.config,
+      this.operationRepository,
       {
         type: "timereport",
         file: reportFile,

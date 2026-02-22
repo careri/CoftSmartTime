@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
 

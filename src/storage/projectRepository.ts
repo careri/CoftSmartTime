@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 
 export interface ProjectMap {
   [branch: string]: {
@@ -53,5 +53,15 @@ export class ProjectRepository {
       // No projects file or invalid JSON
     }
     return result;
+  }
+
+  async saveProjects(projects: ProjectMap): Promise<void> {
+    const projectsPath = path.join(this.config.data, "projects.json");
+    await fs.mkdir(path.dirname(projectsPath), { recursive: true });
+    await fs.writeFile(
+      projectsPath,
+      JSON.stringify(projects, null, 2),
+      "utf-8",
+    );
   }
 }

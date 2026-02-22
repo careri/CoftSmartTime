@@ -4,7 +4,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { GitManager } from "./git";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 
 suite("Git Test Suite", () => {
   let testRoot: string;

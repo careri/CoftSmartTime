@@ -3,13 +3,13 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
+import { OperationQueueWriter } from "./operationQueueWriter";
+import { OperationQueueProcessor } from "./operationQueueProcessor";
+import { OperationRepository } from "../storage/operationRepository";
 import {
-  OperationQueueWriter,
-  OperationQueueProcessor,
-  OperationRequest,
   WriteTimeReportRequest,
   UpdateProjectsRequest,
-} from "./operationQueue";
+} from "../types/operation";
 import { GitManager } from "../storage/git";
 import { StorageManager } from "../storage/storage";
 import { CoftConfig } from "./config";
@@ -32,16 +32,21 @@ function createTestConfig(testRoot: string): CoftConfig {
   };
 }
 
-suite("OperationQueue Test Suite", () => {
+suite("OperationQueueProcessor Test Suite", () => {
   let testRoot: string;
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
 
   setup(async () => {
-    testRoot = path.join(os.tmpdir(), `coft-operationqueue-test-${Date.now()}`);
+    testRoot = path.join(
+      os.tmpdir(),
+      `coft-operationqueue-processor-test-${Date.now()}`,
+    );
     await fs.mkdir(testRoot, { recursive: true });
     testConfig = createTestConfig(testRoot);
-    outputChannel = vscode.window.createOutputChannel("OperationQueue Test");
+    outputChannel = vscode.window.createOutputChannel(
+      "OperationQueueProcessor Test",
+    );
 
     // Pre-set housekeeping date so processing doesn't auto-queue housekeeping
     await fs.mkdir(testConfig.data, { recursive: true });
@@ -61,83 +66,6 @@ suite("OperationQueue Test Suite", () => {
     }
   });
 
-  test("OperationQueueWriter should create request file in operation_queue", async () => {
-    const request: WriteTimeReportRequest = {
-      type: "timereport",
-      file: "reports/2026/02/15.json",
-      body: { date: "2026-02-15" },
-    };
-
-    await OperationQueueWriter.write(testConfig, request, outputChannel);
-
-    const files = await fs.readdir(testConfig.operationQueue);
-    assert.strictEqual(files.length, 1);
-    assert.ok(files[0].endsWith(".json"));
-
-    const content = await fs.readFile(
-      path.join(testConfig.operationQueue, files[0]),
-      "utf-8",
-    );
-    const parsed = JSON.parse(content);
-    assert.strictEqual(parsed.type, "timereport");
-    assert.strictEqual(parsed.file, "reports/2026/02/15.json");
-    assert.ok(parsed.body);
-  });
-
-  test("OperationQueueWriter should create queue directory if missing", async () => {
-    const request: UpdateProjectsRequest = {
-      type: "projects",
-      file: "projects.json",
-      body: { feature: { "/project": "Alpha" } },
-    };
-
-    // operationQueue dir does not exist yet
-    await OperationQueueWriter.write(testConfig, request, outputChannel);
-
-    const stat = await fs.stat(testConfig.operationQueue);
-    assert.ok(stat.isDirectory());
-  });
-
-  test("OperationQueueWriter should write multiple requests as separate files", async () => {
-    await fs.mkdir(testConfig.operationQueue, { recursive: true });
-
-    await OperationQueueWriter.write(
-      testConfig,
-      {
-        type: "timereport",
-        file: "reports/2026/02/15.json",
-        body: { date: "2026-02-15" },
-      },
-      outputChannel,
-    );
-    await OperationQueueWriter.write(
-      testConfig,
-      { type: "projects", file: "projects.json", body: { a: {} } },
-      outputChannel,
-    );
-
-    const files = await fs.readdir(testConfig.operationQueue);
-    assert.strictEqual(files.length, 2);
-  });
-
-  test("OperationQueueWriter should write ProcessBatchRequest", async () => {
-    await OperationQueueWriter.write(
-      testConfig,
-      { type: "processBatch" },
-      outputChannel,
-    );
-
-    const files = await fs.readdir(testConfig.operationQueue);
-    assert.strictEqual(files.length, 1);
-
-    const content = await fs.readFile(
-      path.join(testConfig.operationQueue, files[0]),
-      "utf-8",
-    );
-    const parsed = JSON.parse(content);
-    assert.strictEqual(parsed.type, "processBatch");
-  });
-
   test("OperationQueueProcessor should write file and commit for timereport", async () => {
     // Initialize git repo
     await fs.mkdir(testConfig.data, { recursive: true });
@@ -154,7 +82,11 @@ suite("OperationQueue Test Suite", () => {
       file: "reports/2026/02/15.json",
       body: reportData,
     };
-    await OperationQueueWriter.write(testConfig, request, outputChannel);
+    await OperationQueueWriter.write(
+      storage.operationRepository,
+      request,
+      outputChannel,
+    );
 
     // Process the queue
     const processor = new OperationQueueProcessor(
@@ -191,20 +123,20 @@ suite("OperationQueue Test Suite", () => {
     await storage.initialize();
 
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       {
         type: "timereport",
         file: "reports/2026/02/15.json",
-        body: { first: true },
+        body: { date: "2026-02-15", entries: [] },
       },
       outputChannel,
     );
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       {
         type: "projects",
         file: "projects.json",
-        body: { second: true },
+        body: { branch1: { dir1: "proj1" } },
       },
       outputChannel,
     );
@@ -222,13 +154,16 @@ suite("OperationQueue Test Suite", () => {
       path.join(testConfig.data, "reports", "2026", "02", "15.json"),
       "utf-8",
     );
-    assert.deepStrictEqual(JSON.parse(file1), { first: true });
+    assert.deepStrictEqual(JSON.parse(file1), {
+      date: "2026-02-15",
+      entries: [],
+    });
 
     const file2 = await fs.readFile(
       path.join(testConfig.data, "projects.json"),
       "utf-8",
     );
-    assert.deepStrictEqual(JSON.parse(file2), { second: true });
+    assert.deepStrictEqual(JSON.parse(file2), { branch1: { dir1: "proj1" } });
 
     // Queue should be empty
     const remaining = await fs.readdir(testConfig.operationQueue);
@@ -315,22 +250,29 @@ suite("OperationQueue Test Suite", () => {
     assert.strictEqual(queueFiles.length, 0);
   });
 
-  test("OperationQueueProcessor request filename uses hash pattern", async () => {
+  test("OperationQueueProcessor request filename uses timestamp pattern", async () => {
+    const storage = new StorageManager(testConfig, outputChannel);
+    await storage.initialize();
+
     const request: WriteTimeReportRequest = {
       type: "timereport",
       file: "reports/2026/02/15.json",
-      body: { date: "2026-02-15" },
+      body: { date: "2026-02-15", entries: [] },
     };
 
-    await OperationQueueWriter.write(testConfig, request, outputChannel);
+    await OperationQueueWriter.write(
+      storage.operationRepository,
+      request,
+      outputChannel,
+    );
 
     const files = await fs.readdir(testConfig.operationQueue);
     assert.strictEqual(files.length, 1);
 
-    const filenamePattern = /^\d+_[a-f0-9]{12}\.json$/;
+    const filenamePattern = /^\d+_[a-z0-9]+\.json$/;
     assert.ok(
       filenamePattern.test(files[0]),
-      `Filename ${files[0]} should match hash pattern`,
+      `Filename ${files[0]} should match timestamp pattern`,
     );
   });
 
@@ -347,7 +289,11 @@ suite("OperationQueue Test Suite", () => {
       file: "reports/2026/02/15.json",
       body: { date: "2026-02-15", entries: [] },
     };
-    await OperationQueueWriter.write(testConfig, request, outputChannel);
+    await OperationQueueWriter.write(
+      storage.operationRepository,
+      request,
+      outputChannel,
+    );
 
     const processor = new OperationQueueProcessor(
       testConfig,
@@ -383,7 +329,7 @@ suite("OperationQueue Test Suite", () => {
 
     // Write a ProcessBatchRequest
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       { type: "processBatch" },
       outputChannel,
     );
@@ -435,7 +381,7 @@ suite("OperationQueue Test Suite", () => {
 
     // Write a ProcessBatchRequest with no queue files
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       { type: "processBatch" },
       outputChannel,
     );
@@ -476,7 +422,7 @@ suite("OperationQueue Test Suite", () => {
 
     // Write a HousekeepingRequest
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       { type: "housekeeping" },
       outputChannel,
     );
@@ -500,24 +446,6 @@ suite("OperationQueue Test Suite", () => {
     assert.strictEqual(lastDate, today);
   });
 
-  test("OperationQueueWriter should write HousekeepingRequest", async () => {
-    await OperationQueueWriter.write(
-      testConfig,
-      { type: "housekeeping" },
-      outputChannel,
-    );
-
-    const files = await fs.readdir(testConfig.operationQueue);
-    assert.strictEqual(files.length, 1);
-
-    const content = await fs.readFile(
-      path.join(testConfig.operationQueue, files[0]),
-      "utf-8",
-    );
-    const parsed = JSON.parse(content);
-    assert.strictEqual(parsed.type, "housekeeping");
-  });
-
   test("OperationQueueProcessor should skip housekeeping if already done today", async () => {
     await fs.mkdir(testConfig.data, { recursive: true });
     await fs.mkdir(testConfig.backup, { recursive: true });
@@ -530,7 +458,7 @@ suite("OperationQueue Test Suite", () => {
 
     // Write a HousekeepingRequest
     await OperationQueueWriter.write(
-      testConfig,
+      storage.operationRepository,
       { type: "housekeeping" },
       outputChannel,
     );

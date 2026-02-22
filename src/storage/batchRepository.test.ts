@@ -4,7 +4,8 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { BatchRepository } from "./batchRepository";
-import { CoftConfig } from "../logic/config";
+import { BatchService } from "../services/batchService";
+import { CoftConfig } from "../application/config";
 import { QueueEntry, BatchEntry } from "./storage";
 
 function createTestConfig(testRoot: string): CoftConfig {
@@ -30,6 +31,7 @@ suite("BatchRepository Test Suite", () => {
   let testConfig: CoftConfig;
   let outputChannel: vscode.OutputChannel;
   let repository: BatchRepository;
+  let service: BatchService;
 
   setup(async () => {
     testRoot = path.join(os.tmpdir(), `coft-batch-repo-test-${Date.now()}`);
@@ -38,6 +40,7 @@ suite("BatchRepository Test Suite", () => {
     testConfig = createTestConfig(testRoot);
     outputChannel = vscode.window.createOutputChannel("BatchRepository Test");
     repository = new BatchRepository(testConfig, outputChannel);
+    service = new BatchService(testConfig, repository, outputChannel);
 
     // Create necessary directories
     await fs.mkdir(testConfig.queueBatch, { recursive: true });
@@ -113,7 +116,7 @@ suite("BatchRepository Test Suite", () => {
       "utf-8",
     );
 
-    const result = await repository.collectBatches();
+    const result = await service.collectAndMergeBatches();
 
     assert.strictEqual(result.collected, true);
     assert.strictEqual(result.filesProcessed, 1);
@@ -150,7 +153,7 @@ suite("BatchRepository Test Suite", () => {
       "utf-8",
     );
 
-    const result = await repository.collectBatches();
+    const result = await service.collectAndMergeBatches();
 
     assert.strictEqual(result.collected, false);
     assert.strictEqual(result.filesProcessed, 0);
@@ -161,7 +164,7 @@ suite("BatchRepository Test Suite", () => {
   });
 
   test("collectBatches should return false when no batch files exist", async () => {
-    const result = await repository.collectBatches();
+    const result = await service.collectAndMergeBatches();
     assert.strictEqual(result.collected, false);
     assert.strictEqual(result.filesProcessed, 0);
   });
@@ -200,7 +203,7 @@ suite("BatchRepository Test Suite", () => {
       "utf-8",
     );
 
-    const result = await repository.collectBatches();
+    const result = await service.collectAndMergeBatches();
 
     assert.strictEqual(result.collected, true);
     assert.strictEqual(result.filesProcessed, 2);
@@ -230,7 +233,7 @@ suite("BatchRepository Test Suite", () => {
       "utf-8",
     );
 
-    const result = await repository.collectBatches();
+    const result = await service.collectAndMergeBatches();
 
     assert.strictEqual(result.collected, false);
     assert.strictEqual(result.filesProcessed, 0);

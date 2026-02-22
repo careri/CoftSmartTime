@@ -4,7 +4,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { StorageManager } from "./storage";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 
 function createTestConfig(testRoot: string): CoftConfig {
   return {

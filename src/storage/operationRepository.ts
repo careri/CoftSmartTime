@@ -1,38 +1,15 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "../logic/config";
-
-export interface ProcessBatchRequest {
-  type: "processBatch";
-}
-
-export interface WriteTimeReportRequest {
-  type: "timereport";
-  file: string;
-  body: any;
-}
-
-export interface UpdateProjectsRequest {
-  type: "projects";
-  file: string;
-  body: any;
-}
-
-export interface HousekeepingRequest {
-  type: "housekeeping";
-}
-
-export interface InvalidRequest {
-  type: "invalid";
-}
-
-export type OperationRequest =
-  | ProcessBatchRequest
-  | WriteTimeReportRequest
-  | UpdateProjectsRequest
-  | HousekeepingRequest
-  | InvalidRequest;
+import { CoftConfig } from "../application/config";
+import {
+  ProcessBatchRequest,
+  WriteTimeReportRequest,
+  UpdateProjectsRequest,
+  HousekeepingRequest,
+  InvalidRequest,
+  OperationRequest,
+} from "../types/operation";
 
 export class OperationRepository {
   private config: CoftConfig;
@@ -83,5 +60,14 @@ export class OperationRepository {
         `Error deleting operation request ${file}: ${error}`,
       );
     }
+  }
+
+  async addOperation(request: OperationRequest): Promise<void> {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const fileName = `${timestamp}_${random}.json`;
+    const filePath = path.join(this.config.operationQueue, fileName);
+    await fs.mkdir(this.config.operationQueue, { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify(request, null, 2), "utf-8");
   }
 }

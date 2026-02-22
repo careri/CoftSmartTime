@@ -107,7 +107,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "DISPLAY=:99 xvfb-run -a npm run test:run",
-    "test:run": "vscode-test"
+    "test:run": "vscode-test --run out/**/*.test.js"
   },
   "devDependencies": {
     "@types/vscode": "^1.109.0",

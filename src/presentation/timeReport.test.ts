@@ -4,7 +4,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { TimeReportProvider } from "./timeReport";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 
 suite("TimeReport Test Suite", () => {
   let testRoot: string;

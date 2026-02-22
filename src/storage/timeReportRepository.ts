@@ -1,9 +1,9 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
-import { CoftConfig } from "../logic/config";
+import { CoftConfig } from "../application/config";
 
-interface SavedTimeEntry {
+export interface SavedTimeEntry {
   key: string;
   branch: string;
   directory: string;
@@ -12,7 +12,7 @@ interface SavedTimeEntry {
   assignedBranch?: string;
 }
 
-interface SavedTimeReport {
+export interface SavedTimeReport {
   date: string;
   entries: SavedTimeEntry[];
   startOfDay?: string;
@@ -51,19 +51,14 @@ export class TimeReportRepository {
   }
 
   async saveReport(report: SavedTimeReport): Promise<void> {
-    const date = new Date(report.date);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
+    const [year, month, day] = report.date.split("-").map(Number);
     const reportPath = path.join(
       this.config.data,
       "reports",
       String(year),
-      month,
-      `${day}.json`,
+      String(month).padStart(2, "0"),
+      `${String(day).padStart(2, "0")}.json`,
     );
-
     await fs.mkdir(path.dirname(reportPath), { recursive: true });
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
   }
