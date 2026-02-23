@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COFT Time Report</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .navigation {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        td:nth-child(2) {
+            white-space: normal;
+            word-break: break-all;
+        }
+        td:has(.combobox-wrapper) {
+            overflow: visible;
+        }
+        th {
+            background-color: var(--vscode-editor-lineHighlightBackground);
+        }
+        input {
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            padding: 4px 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .save-button {
+            background-color: var(--vscode-button-background);
+        }
+        .entry-row {
+            cursor: pointer;
+        }
+        .entry-row:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .entry-row.selected {
+            background-color: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+        #detailSection {
+            margin-top: 30px;
+        }
+        #detailSection h3 {
+            margin-bottom: 10px;
+        }
+        select {
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            padding: 4px 8px;
+        }
+        .overview-section {
+            margin-bottom: 30px;
+            padding: 16px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            overflow: visible;
+        }
+        .overview-section h2 {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .day-range {
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+        }
+        .day-range span {
+            margin-right: 24px;
+        }
+        .day-range .worked-hours {
+            margin-left: auto;
+            font-weight: bold;
+        }
+        .section-title {
+            margin-top: 30px;
+            margin-bottom: 4px;
+        }
+        .combobox-wrapper {
+            position: relative;
+        }
+        .combobox-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background-color: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .combobox-dropdown.open {
+            display: block;
+        }
+        .combobox-option {
+            padding: 4px 8px;
+            cursor: pointer;
+            color: var(--vscode-input-foreground);
+        }
+        .combobox-option:hover,
+        .combobox-option.active {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .row-buttons-cell {
+            white-space: nowrap;
+            width: 1%;
+            padding: 2px 4px;
+        }
+        .row-btn {
+            display: inline-block;
+            padding: 2px 6px;
+            margin: 0 1px;
+            font-size: 10px;
+            line-height: 1;
+            min-width: 0;
+            cursor: pointer;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
+        }
+        .row-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .time-gap {
+            background-color: rgba(255, 165, 0, 0.3);
+        }
+        .time-gap::after {
+            content: "⚠️ Time gap";
+            font-size: 0.8em;
+            color: orange;
+            margin-left: 8px;
+        }
+        .comment-field {
+            border: none;
+            background: transparent;
+            color: inherit;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .comment-field:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+        .branch-input {
+            border: none;
+            background: transparent;
+            color: inherit;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .branch-input:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+        .project-input {
+            border: none;
+            background: transparent;
+            color: inherit;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        .project-input:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>COFT Time Report</h1>
+        <div class="navigation">
+            <button id="prevDay">&larr; Previous Day</button>
+            <button id="nextDay">Next Day &rarr;</button>
+            <button id="today">Today</button>
+            <button id="save" class="save-button">Save</button>
+        </div>
+    </div>
+
+    <div class="overview-section">
+        <h2>Overview</h2>
+        <div class="day-range">
+            <span>{{dateStr}}</span>
+            <span>Start: {{startOfDay}}</span>
+            <span>End: {{endOfDay}}</span>
+            <span class="worked-hours">Total: {{totalHours}}</span>
+        </div>
+        {{overviewHtml}}
+    </div>
+
+    <h2 class="section-title">Timetable</h2>
+    <table id="entriesTable">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Time</th>
+                <th>Directory</th>
+                <th>Branch</th>
+                <th>Comment</th>
+                <th>Project</th>
+                <th>Assigned Branch</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{entriesHtml}}
+        </tbody>
+    </table>
+
+    <div id="detailSection" style="display: none;">
+        <h3 id="detailTitle">Batch Items</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="detailBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        let currentEntries = {{entriesJson}};
+        let currentProjects = {{projectsJson}};
+        let currentOverview = {{overviewJson}};
+
+        document.getElementById('prevDay').addEventListener('click', () => {
+            vscode.postMessage({ command: 'prevDay' });
+        });
+
+        document.getElementById('nextDay').addEventListener('click', () => {
+            vscode.postMessage({ command: 'nextDay' });
+        });
+
+        document.getElementById('today').addEventListener('click', () => {
+            vscode.postMessage({ command: 'today' });
+        });
+
+        document.getElementById('save').addEventListener('click', () => {
+            vscode.postMessage({ command: 'save' });
+        });
+
+        const table = document.getElementById('entriesTable');
+        const tbody = table.querySelector('tbody');
+
+        function updateOverview() {
+            const overviewHtml = currentOverview.groups
+                .map(group => {
+                    const headerRow = `
+                        <tr class="group-header">
+                            <td colspan="2"><strong>${escapeHtml(group.project)}</strong></td>
+                            <td colspan="3">${escapeHtml(group.timeStr)}</td>
+                        </tr>`;
+
+                    const entryRows = group.entries
+                        .map(entry => {
+                            const projectCell = entry.projectEditable
+                                ? `<div class="combobox-wrapper">
+                                    <input type="text" class="project-input" value="${escapeHtml(entry.project)}" data-project="${escapeHtml(entry.project)}" />
+                                    <div class="combobox-dropdown">
+                                        ${Object.keys(currentProjects).map(p => `<div class="combobox-option" data-value="${escapeHtml(p)}">${escapeHtml(p)}</div>`).join('')}
+                                    </div>
+                                </div>`
+                                : escapeHtml(entry.project);
+                            return `
+                        <tr>
+                            <td></td>
+                            <td>${escapeHtml(entry.directory)}</td>
+                            <td>${escapeHtml(entry.branch)}</td>
+                            <td>${projectCell}</td>
+                            <td>${escapeHtml(entry.timeStr)}</td>
+                        </tr>`;
+                        })
+                        .join("");
+
+                    return headerRow + entryRows;
+                })
+                .join("");
+
+            document.querySelector('.overview-section tbody').innerHTML = overviewHtml;
+            setupComboboxes();
+        }
+
+        function setupComboboxes() {
+            document.querySelectorAll('.project-input').forEach(input => {
+                const wrapper = input.parentElement;
+                const dropdown = wrapper.querySelector('.combobox-dropdown');
+                const originalValue = input.dataset.project;
+
+                input.addEventListener('focus', () => {
+                    dropdown.classList.add('open');
+                });
+
+                input.addEventListener('input', () => {
+                    const filter = input.value.toLowerCase();
+                    dropdown.querySelectorAll('.combobox-option').forEach(option => {
+                        option.style.display = option.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
+                    });
+                });
+
+                input.addEventListener('blur', () => {
+                    setTimeout(() => dropdown.classList.remove('open'), 150);
+                });
+
+                dropdown.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('combobox-option')) {
+                        input.value = e.target.dataset.value;
+                        input.dataset.project = e.target.dataset.value;
+                        dropdown.classList.remove('open');
+                        updateProject(input);
+                    }
+                });
+            });
+        }
+
+        function updateProject(input) {
+            const newProject = input.value;
+            const index = Array.from(tbody.querySelectorAll('.entry-row')).indexOf(input.closest('tr'));
+            if (index >= 0) {
+                currentEntries[index].project = newProject;
+                updateOverview();
+            }
+        }
+
+        tbody.addEventListener('click', (e) => {
+            const row = e.target.closest('.entry-row');
+            if (!row) return;
+
+            const index = Array.from(tbody.querySelectorAll('.entry-row')).indexOf(row);
+
+            if (e.target.classList.contains('copy-above-btn')) {
+                if (index > 0) {
+                    currentEntries[index].comment = currentEntries[index - 1].comment;
+                    currentEntries[index].project = currentEntries[index - 1].project;
+                    currentEntries[index].assignedBranch = currentEntries[index - 1].assignedBranch;
+                    row.querySelector('.comment-field').value = currentEntries[index].comment;
+                    row.querySelector('.project-cell').textContent = currentEntries[index].project;
+                    row.querySelector('.assigned-branch-cell').textContent = currentEntries[index].assignedBranch;
+                    updateOverview();
+                }
+            } else if (e.target.classList.contains('copy-below-btn')) {
+                if (index < currentEntries.length - 1) {
+                    currentEntries[index].comment = currentEntries[index + 1].comment;
+                    currentEntries[index].project = currentEntries[index + 1].project;
+                    currentEntries[index].assignedBranch = currentEntries[index + 1].assignedBranch;
+                    row.querySelector('.comment-field').value = currentEntries[index].comment;
+                    row.querySelector('.project-cell').textContent = currentEntries[index].project;
+                    row.querySelector('.assigned-branch-cell').textContent = currentEntries[index].assignedBranch;
+                    updateOverview();
+                }
+            } else if (e.target.classList.contains('edit-btn')) {
+                const branchCell = row.querySelector('.branch-cell');
+                const currentBranch = currentEntries[index].branch;
+                branchCell.innerHTML = '<input type="text" class="branch-input" value="' + escapeHtml(currentBranch) + '" />';
+                const input = branchCell.querySelector('.branch-input');
+                input.focus();
+                input.select();
+
+                function saveBranch() {
+                    const newBranch = input.value.trim();
+                    currentEntries[index].branch = newBranch;
+                    currentEntries[index].assignedBranch = newBranch;
+                    const newProject = lookupProject(currentProjects, newBranch, currentEntries[index].directory);
+                    if (newProject) {
+                        currentEntries[index].project = newProject;
+                    }
+                    branchCell.innerHTML = escapeHtml(newBranch);
+                    const row = branchCell.closest('tr');
+                    const assignedCell = row.querySelector('.assigned-branch-cell');
+                    assignedCell.innerHTML = escapeHtml(newBranch);
+                    if (newProject) {
+                        const projectCell = row.querySelector('.project-cell');
+                        projectCell.innerHTML = escapeHtml(newProject);
+                    }
+                    updateOverview();
+                }
+
+                input.addEventListener('blur', saveBranch);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveBranch();
+                    } else if (e.key === 'Escape') {
+                        branchCell.innerHTML = escapeHtml(currentBranch);
+                    }
+                });
+            } else {
+                // Select row
+                document.querySelectorAll('.entry-row').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+                showDetail(index);
+            }
+        });
+
+        function lookupProject(projects, branch, directory) {
+            const key = branch + ':' + directory;
+            return projects[key];
+        }
+
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('comment-field')) {
+                const index = e.target.dataset.index;
+                currentEntries[index].comment = e.target.value;
+            }
+        });
+
+        function showDetail(index) {
+            const entry = currentEntries[index];
+            if (!entry) {
+                return;
+            }
+            const detailSection = document.getElementById('detailSection');
+            const detailBody = document.getElementById('detailBody');
+            const detailTitle = document.getElementById('detailTitle');
+
+            detailTitle.textContent = 'Batch Items: ' + entry.key + ' - ' + entry.directory + ' (' + entry.branch + ')';
+
+            const details = entry.fileDetails || [];
+            details.sort((a, b) => a.timestamp - b.timestamp);
+
+            detailBody.innerHTML = details.map(d => {
+                const ts = new Date(d.timestamp).toLocaleTimeString();
+                return '<tr><td>' + escapeHtml(d.file) + '</td><td>' + escapeHtml(ts) + '</td></tr>';
+            }).join('');
+
+            if (details.length === 0) {
+                detailBody.innerHTML = '<tr><td colspan="2">No file details available</td></tr>';
+            }
+
+            detailSection.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        updateOverview();
+    </script>
+</body>
+</html></content>
+<parameter name="filePath">/workspaces/smart-time/src/presentation/timeReportTemplate.html

@@ -70,5 +70,63 @@ export class TimeReportViewModel {
     }
   }
 
+  copyRow(
+    index: number,
+    direction: "above" | "below",
+    projects: ProjectMap,
+  ): void {
+    if (!this.report) {
+      return;
+    }
+    this.assignBranches(projects);
+
+    const entry = this.report.entries[index];
+    if (!entry) {
+      return;
+    }
+
+    const newKey = this.shiftTimeKey(entry.key, direction === "above" ? -1 : 1);
+    if (!newKey) {
+      return;
+    }
+
+    const newEntry: TimeEntry = {
+      key: newKey,
+      branch: entry.branch,
+      directory: entry.directory,
+      files: [],
+      fileDetails: [],
+      comment: entry.comment,
+      project: entry.project,
+      assignedBranch: entry.assignedBranch,
+    };
+
+    this.report.entries.push(newEntry);
+    this.report.entries.sort((a, b) => a.key.localeCompare(b.key));
+
+    // Update start/end of day based on the new entry
+    this.updateStartEndOfDay();
+  }
+
+  updateStartEndOfDay(): void {
+    if (!this.report || this.report.entries.length === 0) {
+      return;
+    }
+    const keys = this.report.entries.map((e) => e.key).sort();
+    const firstKey = keys[0];
+    const lastKey = keys[keys.length - 1];
+    const lastEndKey = this.shiftTimeKey(lastKey, 1);
+
+    if (!this.report.startOfDay || firstKey < this.report.startOfDay) {
+      this.report.startOfDay = firstKey;
+    }
+    if (
+      !this.report.endOfDay ||
+      (lastEndKey && lastEndKey > this.report.endOfDay)
+    ) {
+      this.report.endOfDay = lastEndKey || lastKey;
+    }
+  }
+
   // TODO: add other methods
 }
