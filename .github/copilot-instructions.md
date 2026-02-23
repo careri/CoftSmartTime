@@ -141,3 +141,12 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 - Unit tests are created without asking; ask before changing non-test code
 - Build fails on unused variables, methods, classes, and imports (TypeScript noUnusedLocals/noUnusedParameters, ESLint no-unused-vars)
 - Keep responses brief
+
+## Plans
+
+When working on plans always write a suggested solution to the plan before starting to iimplement. This allows for feedback and course correction before investing time in implementation. The plan should include:
+
+- A clear description of the problem being solved
+- A proposed solution with key steps and components
+- Any assumptions or constraints
+- Potential edge cases and how they will be handled

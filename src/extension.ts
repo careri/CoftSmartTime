@@ -27,6 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
     .get("enableDebugLogs", false);
   logger = new Logger(outputChannel, debugEnabled);
   logger.info("COFT SmartTime extension activating...");
+  const version = context.extension.packageJSON.version;
+  logger.info(`Extension version: ${version}`);
 
   // Register save hook
   const saveDisposable = vscode.workspace.onDidSaveTextDocument(
@@ -142,6 +144,8 @@ function shutdown(): void {
 
 async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
   try {
+    const version = context.extension.packageJSON.version;
+
     // Get configuration
     const configManager = new ConfigManager(logger);
     const config = configManager.getConfig();
@@ -176,7 +180,7 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     operationQueueProcessor.start();
 
     // Create time report provider
-    timeReportProvider = new TimeReportProvider(config, logger);
+    timeReportProvider = new TimeReportProvider(config, logger, version);
 
     // Create time summary provider
     timeSummaryProvider = new TimeSummaryProvider(

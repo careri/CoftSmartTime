@@ -14,6 +14,7 @@ export interface ProjectGroup {
 export interface OverviewData {
   startOfDay: string;
   endOfDay: string;
+  totalHours: string;
   entries: OverviewEntry[];
   groups: ProjectGroup[];
 }

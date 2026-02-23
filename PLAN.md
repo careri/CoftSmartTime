@@ -281,10 +281,10 @@ Batches are stored in COFT_DATA/batches
 - ✅ Show the info for the assigned branch on the row. including readonly project (should update if changed in the overview)
 - ✅ Highlight timeslot gaps with orange background when a slot is not followed by the next expected time in the series
 
-Group them by:
+Rows are ordered chronologically. One row is shown per time slot:
 
-- ✅ COFT_VIEW_GROUP_BY_MINUTES <readonly>
-- ✅ Composite key of ITEM_BRANCH and ITEM_DIR <readonly> (COMPOSITE_KEY)
+- ✅ Each time slot spans COFT_VIEW_GROUP_BY_MINUTES minutes <readonly>
+- ✅ When multiple branch+dir combinations (COMPOSITE_KEY) have saves in the same slot, only the one with the most changed files is shown <readonly>
 
 ####### Buttons
 

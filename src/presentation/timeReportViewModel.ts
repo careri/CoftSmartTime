@@ -3,7 +3,7 @@ import { CoftConfig } from "../application/config";
 import { OperationRepository } from "../storage/operationRepository";
 import { OperationQueueWriter } from "../application/operationQueueWriter";
 import { OperationRequest } from "../types/operation";
-import { TimeReport } from "../storage/batchRepository";
+import { TimeReport, TimeEntry } from "../storage/batchRepository";
 import { SavedTimeReport } from "../storage/timeReportRepository";
 import { Logger } from "../utils/logger";
 
@@ -12,10 +12,47 @@ export class TimeReportViewModel {
   private operationQueue: OperationRequest[] = [];
   private logger: Logger;
   private operationRepository: OperationRepository;
+  private config: CoftConfig;
 
   constructor(config: CoftConfig, logger: Logger) {
+    this.config = config;
     this.logger = logger;
     this.operationRepository = new OperationRepository(config, logger);
+  }
+
+  setReport(report: TimeReport | null): void {
+    this.report = report;
+  }
+
+  async updateProjectMapping(
+    branch: string,
+    project: string,
+    directory: string,
+  ): Promise<void> {
+    this.operationQueue.push({
+      type: "projectChange",
+      action: "add",
+      branch,
+      directory,
+      project,
+    });
+  }
+
+  private shiftTimeKey(key: string, slots: number): string | null {
+    const parts = key.split(":");
+    if (parts.length !== 2) {
+      return null;
+    }
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const totalMinutes =
+      hours * 60 + minutes + slots * this.config.viewGroupByMinutes;
+    if (totalMinutes < 0 || totalMinutes >= 24 * 60) {
+      return null;
+    }
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMinutes = totalMinutes % 60;
+    return `${String(newHours).padStart(2, "0")}:${String(newMinutes).padStart(2, "0")}`;
   }
 
   private buildSavedReport(reportData: TimeReport): SavedTimeReport {
@@ -70,15 +107,10 @@ export class TimeReportViewModel {
     }
   }
 
-  copyRow(
-    index: number,
-    direction: "above" | "below",
-    projects: ProjectMap,
-  ): void {
+  copyRow(index: number, direction: "above" | "below"): void {
     if (!this.report) {
       return;
     }
-    this.assignBranches(projects);
 
     const entry = this.report.entries[index];
     if (!entry) {

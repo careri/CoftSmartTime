@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.43",
+  "version": "0.0.54",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -117,9 +117,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --loader:.html=text",
-    "watch": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --loader:.html=text --watch",
-    "pretest": "npm run compile && npm run lint",
+    "compile": "npm run lint && esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --loader:.html=text",
+    "watch": "npm run lint && esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --loader:.html=text --watch",
+    "pretest": "npm run compile && npx tsc",
     "lint": "eslint src",
     "test": "DISPLAY=:99 xvfb-run -a npm run test:run",
     "test:run": "vscode-test --run out/**/*.test.js"

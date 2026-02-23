@@ -161,8 +161,12 @@
             border: none;
             border-radius: 2px;
         }
-        .row-btn:hover {
+        .row-btn:hover:not(:disabled) {
             background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .row-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
         }
         .time-gap {
             background-color: rgba(255, 165, 0, 0.3);
@@ -216,6 +220,7 @@
             <button id="nextDay">Next Day &rarr;</button>
             <button id="today">Today</button>
             <button id="save" class="save-button">Save</button>
+            {{exportButton}}
         </div>
     </div>
 
@@ -227,7 +232,19 @@
             <span>End: {{endOfDay}}</span>
             <span class="worked-hours">Total: {{totalHours}}</span>
         </div>
-        {{overviewHtml}}
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Directory</th>
+                    <th>Project</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{overviewHtml}}
+            </tbody>
+        </table>
     </div>
 
     <h2 class="section-title">Timetable</h2>
@@ -266,10 +283,11 @@
         const vscode = acquireVsCodeApi();
         let currentEntries = {{entriesJson}};
         let currentProjects = {{projectsJson}};
-        let currentOverview = {{overviewJson}};
+        const allProjectNames = {{projectNamesJson}};
+        let activeComboIndex = -1;
 
         document.getElementById('prevDay').addEventListener('click', () => {
-            vscode.postMessage({ command: 'prevDay' });
+            vscode.postMessage({ command: 'previousDay' });
         });
 
         document.getElementById('nextDay').addEventListener('click', () => {
@@ -280,90 +298,205 @@
             vscode.postMessage({ command: 'today' });
         });
 
+        function saveReport() {
+            vscode.postMessage({ command: 'save', entries: currentEntries });
+        }
+
         document.getElementById('save').addEventListener('click', () => {
-            vscode.postMessage({ command: 'save' });
+            saveReport();
         });
+
+        window.addEventListener('message', (event) => {
+            const message = event.data;
+            if (message.command === 'triggerSave') {
+                saveReport();
+            }
+        });
+
+        const exportButton = document.getElementById('exportHtml');
+        if (exportButton) {
+            exportButton.addEventListener('click', () => {
+                vscode.postMessage({ command: 'exportHtml' });
+            });
+        }
 
         const table = document.getElementById('entriesTable');
         const tbody = table.querySelector('tbody');
 
-        function updateOverview() {
-            const overviewHtml = currentOverview.groups
-                .map(group => {
-                    const headerRow = `
-                        <tr class="group-header">
-                            <td colspan="2"><strong>${escapeHtml(group.project)}</strong></td>
-                            <td colspan="3">${escapeHtml(group.timeStr)}</td>
-                        </tr>`;
+        function computeOverview(entries, projects) {
+            const compositeTimeSlots = {};
+            for (const entry of entries) {
+                const branchToUse = entry.assignedBranch || entry.branch;
+                const compositeKey = branchToUse + '\0' + entry.directory;
+                if (!compositeTimeSlots[compositeKey]) {
+                    compositeTimeSlots[compositeKey] = { branch: branchToUse, directory: entry.directory, keys: new Set() };
+                }
+                compositeTimeSlots[compositeKey].keys.add(entry.key);
+            }
 
-                    const entryRows = group.entries
-                        .map(entry => {
-                            const projectCell = entry.projectEditable
-                                ? `<div class="combobox-wrapper">
-                                    <input type="text" class="project-input" value="${escapeHtml(entry.project)}" data-project="${escapeHtml(entry.project)}" />
-                                    <div class="combobox-dropdown">
-                                        ${Object.keys(currentProjects).map(p => `<div class="combobox-option" data-value="${escapeHtml(p)}">${escapeHtml(p)}</div>`).join('')}
-                                    </div>
-                                </div>`
-                                : escapeHtml(entry.project);
-                            return `
-                        <tr>
-                            <td></td>
-                            <td>${escapeHtml(entry.directory)}</td>
-                            <td>${escapeHtml(entry.branch)}</td>
-                            <td>${projectCell}</td>
-                            <td>${escapeHtml(entry.timeStr)}</td>
-                        </tr>`;
-                        })
-                        .join("");
+            const overviewEntries = Object.values(compositeTimeSlots).map(item => ({
+                branch: item.branch,
+                directory: item.directory,
+                project: lookupProject(projects, item.branch, item.directory),
+                timeSlots: item.keys.size,
+            }));
 
-                    return headerRow + entryRows;
-                })
-                .join("");
+            overviewEntries.sort((a, b) => {
+                const branchCmp = a.branch.localeCompare(b.branch);
+                if (branchCmp !== 0) { return branchCmp; }
+                return a.directory.localeCompare(b.directory);
+            });
 
-            document.querySelector('.overview-section tbody').innerHTML = overviewHtml;
-            setupComboboxes();
+            const groupMap = {};
+            for (const entry of overviewEntries) {
+                const projectKey = entry.project || '';
+                if (!groupMap[projectKey]) { groupMap[projectKey] = []; }
+                groupMap[projectKey].push(entry);
+            }
+
+            const groups = Object.keys(groupMap).sort((a, b) => {
+                if (a === '' && b !== '') { return 1; }
+                if (a !== '' && b === '') { return -1; }
+                return a.localeCompare(b);
+            }).map(project => ({
+                project,
+                totalTimeSlots: groupMap[project].reduce((sum, e) => sum + e.timeSlots, 0),
+                entries: groupMap[project],
+            }));
+
+            return { entries: overviewEntries, groups };
         }
 
-        function setupComboboxes() {
-            document.querySelectorAll('.project-input').forEach(input => {
-                const wrapper = input.parentElement;
-                const dropdown = wrapper.querySelector('.combobox-dropdown');
-                const originalValue = input.dataset.project;
+        function formatTotalWorkedHours(groups, slotMinutes) {
+            const totalSlots = groups.reduce((sum, g) => sum + g.totalTimeSlots, 0);
+            const totalMinutes = totalSlots * slotMinutes;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if (totalMinutes === 0) { return ''; }
+            return hours > 0 ? 'Total: ' + hours + 'h ' + minutes + 'm' : 'Total: ' + minutes + 'm';
+        }
 
-                input.addEventListener('focus', () => {
-                    dropdown.classList.add('open');
-                });
+        function updateOverview() {
+            const overview = computeOverview(currentEntries, currentProjects);
+            const slotMinutes = 15;
 
-                input.addEventListener('input', () => {
-                    const filter = input.value.toLowerCase();
-                    dropdown.querySelectorAll('.combobox-option').forEach(option => {
-                        option.style.display = option.textContent.toLowerCase().includes(filter) ? 'block' : 'none';
-                    });
-                });
+            const overviewHtml = overview.groups.map(group => {
+                const groupTimeMinutes = group.totalTimeSlots * slotMinutes;
+                const groupHours = Math.floor(groupTimeMinutes / 60);
+                const groupMinutes = groupTimeMinutes % 60;
+                const groupTimeStr = groupHours > 0 ? groupHours + 'h ' + groupMinutes + 'm' : groupMinutes + 'm';
+                const groupLabel = group.project || 'Unassigned';
 
-                input.addEventListener('blur', () => {
-                    setTimeout(() => dropdown.classList.remove('open'), 150);
-                });
+                const headerRow = '<tr class="project-group-header"><td colspan="3"><strong>' + escapeHtml(groupLabel) + '</strong></td><td><strong>' + escapeHtml(groupTimeStr) + '</strong></td></tr>';
 
-                dropdown.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('combobox-option')) {
-                        input.value = e.target.dataset.value;
-                        input.dataset.project = e.target.dataset.value;
-                        dropdown.classList.remove('open');
-                        updateProject(input);
-                    }
+                const entryRows = group.entries.map(entry => {
+                    const timeMinutes = entry.timeSlots * slotMinutes;
+                    const hours = Math.floor(timeMinutes / 60);
+                    const minutes = timeMinutes % 60;
+                    const timeStr = hours > 0 ? hours + 'h ' + minutes + 'm' : minutes + 'm';
+                    const branchCell = '<a href="#" title="Open task">' + escapeHtml(entry.branch) + '</a>';
+                    const projectCell = '<div class="combobox-wrapper"><input type="text" class="overview-project-input" data-branch="' + escapeHtml(entry.branch) + '" data-directory="' + escapeHtml(entry.directory) + '" value="' + escapeHtml(entry.project) + '" placeholder="Select or type project..." autocomplete="off" /><div class="combobox-dropdown"></div></div>';
+                    return '<tr class="project-group-entry"><td>' + branchCell + '</td><td>' + escapeHtml(entry.directory) + '</td><td>' + projectCell + '</td><td>' + escapeHtml(timeStr) + '</td></tr>';
+                }).join('');
+
+                return headerRow + entryRows;
+            }).join('');
+
+            document.querySelector('.overview-section tbody').innerHTML = overviewHtml || '<tr><td colspan="4">No entries for this date</td></tr>';
+
+            // Update total hours display
+            const workedHoursEl = document.querySelector('.overview-section .worked-hours');
+            if (workedHoursEl) {
+                workedHoursEl.textContent = formatTotalWorkedHours(overview.groups, slotMinutes);
+            }
+
+            setupOverviewComboboxes();
+        }
+
+        function showDropdown(input) {
+            const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+            const filter = input.value.toLowerCase();
+            const matches = allProjectNames.filter(n => n.toLowerCase().includes(filter));
+            if (matches.length === 0) {
+                dropdown.classList.remove('open');
+                activeComboIndex = -1;
+                return;
+            }
+            dropdown.innerHTML = matches.map(n => '<div class="combobox-option">' + escapeHtml(n) + '</div>').join('');
+            dropdown.classList.add('open');
+            activeComboIndex = -1;
+            dropdown.querySelectorAll('.combobox-option').forEach(opt => {
+                opt.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault();
+                    input.value = opt.textContent;
+                    dropdown.classList.remove('open');
+                    activeComboIndex = -1;
+                    onProjectChanged(input);
                 });
             });
         }
 
-        function updateProject(input) {
-            const newProject = input.value;
-            const index = Array.from(tbody.querySelectorAll('.entry-row')).indexOf(input.closest('tr'));
-            if (index >= 0) {
-                currentEntries[index].project = newProject;
-                updateOverview();
+        function setActiveComboOption(dropdown, index) {
+            const options = dropdown.querySelectorAll('.combobox-option');
+            options.forEach(o => o.classList.remove('active'));
+            if (index >= 0 && index < options.length) {
+                options[index].classList.add('active');
+                options[index].scrollIntoView({ block: 'nearest' });
             }
+            activeComboIndex = index;
+        }
+
+        function setupOverviewComboboxes() {
+            document.querySelectorAll('.overview-project-input').forEach(input => {
+                input.addEventListener('focus', () => showDropdown(input));
+                input.addEventListener('input', () => showDropdown(input));
+                input.addEventListener('blur', () => {
+                    const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                    dropdown.classList.remove('open');
+                    activeComboIndex = -1;
+                });
+                input.addEventListener('keydown', (e) => {
+                    const dropdown = input.parentElement.querySelector('.combobox-dropdown');
+                    const options = dropdown.querySelectorAll('.combobox-option');
+                    if (!dropdown.classList.contains('open') || options.length === 0) { return; }
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setActiveComboOption(dropdown, Math.min(activeComboIndex + 1, options.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setActiveComboOption(dropdown, Math.max(activeComboIndex - 1, 0));
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (activeComboIndex >= 0 && activeComboIndex < options.length) {
+                            input.value = options[activeComboIndex].textContent;
+                            dropdown.classList.remove('open');
+                            activeComboIndex = -1;
+                            onProjectChanged(input);
+                        }
+                    } else if (e.key === 'Escape') {
+                        dropdown.classList.remove('open');
+                        activeComboIndex = -1;
+                    }
+                });
+                input.addEventListener('change', () => onProjectChanged(input));
+            });
+        }
+
+        function onProjectChanged(input) {
+            const branch = input.dataset.branch;
+            const directory = input.dataset.directory;
+            const project = input.value.trim();
+            // Update currentProjects in memory so computeOverview reflects the change
+            if (!currentProjects[branch]) { currentProjects[branch] = {}; }
+            currentProjects[branch][directory] = project;
+            // Update entries project field
+            for (const entry of currentEntries) {
+                if ((entry.assignedBranch || entry.branch) === branch && entry.directory === directory) {
+                    entry.project = project;
+                }
+            }
+            vscode.postMessage({ command: 'updateProjectMapping', branch: branch, project: project, directory: directory });
+            updateOverview();
         }
 
         tbody.addEventListener('click', (e) => {
@@ -373,24 +506,12 @@
             const index = Array.from(tbody.querySelectorAll('.entry-row')).indexOf(row);
 
             if (e.target.classList.contains('copy-above-btn')) {
-                if (index > 0) {
-                    currentEntries[index].comment = currentEntries[index - 1].comment;
-                    currentEntries[index].project = currentEntries[index - 1].project;
-                    currentEntries[index].assignedBranch = currentEntries[index - 1].assignedBranch;
-                    row.querySelector('.comment-field').value = currentEntries[index].comment;
-                    row.querySelector('.project-cell').textContent = currentEntries[index].project;
-                    row.querySelector('.assigned-branch-cell').textContent = currentEntries[index].assignedBranch;
-                    updateOverview();
+                if (!e.target.disabled) {
+                    vscode.postMessage({ command: 'copyRow', index: index, direction: 'above' });
                 }
             } else if (e.target.classList.contains('copy-below-btn')) {
-                if (index < currentEntries.length - 1) {
-                    currentEntries[index].comment = currentEntries[index + 1].comment;
-                    currentEntries[index].project = currentEntries[index + 1].project;
-                    currentEntries[index].assignedBranch = currentEntries[index + 1].assignedBranch;
-                    row.querySelector('.comment-field').value = currentEntries[index].comment;
-                    row.querySelector('.project-cell').textContent = currentEntries[index].project;
-                    row.querySelector('.assigned-branch-cell').textContent = currentEntries[index].assignedBranch;
-                    updateOverview();
+                if (!e.target.disabled) {
+                    vscode.postMessage({ command: 'copyRow', index: index, direction: 'below' });
                 }
             } else if (e.target.classList.contains('edit-btn')) {
                 const branchCell = row.querySelector('.branch-cell');
@@ -437,8 +558,14 @@
         });
 
         function lookupProject(projects, branch, directory) {
-            const key = branch + ':' + directory;
-            return projects[key];
+            if (projects[branch] && projects[branch][directory]) {
+                return projects[branch][directory];
+            }
+            if (projects[branch]) {
+                const dirs = Object.keys(projects[branch]);
+                if (dirs.length > 0) { return projects[branch][dirs[0]]; }
+            }
+            return '';
         }
 
         document.addEventListener('input', (e) => {

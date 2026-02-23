@@ -44,7 +44,7 @@ suite("TimeReport Test Suite", () => {
 
     outputChannel = vscode.window.createOutputChannel("TimeReport Test");
     logger = new Logger(outputChannel, true);
-    provider = new TimeReportProvider(testConfig, logger);
+    provider = new TimeReportProvider(testConfig, logger, "1.0.0");
   });
 
   teardown(async () => {
@@ -101,11 +101,15 @@ suite("TimeReport Test Suite", () => {
       feature: { "/project-a": "Alpha", "/project-b": "Beta" },
     };
     assert.strictEqual(
-      provider.lookupProject(projects, "feature", "/project-a"),
+      // @ts-ignore
+      // @ts-ignore
+      (provider as any).lookupProject(projects, "feature", "/project-a"),
       "Alpha",
     );
     assert.strictEqual(
-      provider.lookupProject(projects, "feature", "/project-b"),
+      // @ts-ignore
+      // @ts-ignore
+      (provider as any).lookupProject(projects, "feature", "/project-b"),
       "Beta",
     );
   });
@@ -115,7 +119,9 @@ suite("TimeReport Test Suite", () => {
       feature: { "/project-a": "Alpha" },
     };
     assert.strictEqual(
-      provider.lookupProject(projects, "feature", "/other-project"),
+      // @ts-ignore
+      // @ts-ignore
+      (provider as any).lookupProject(projects, "feature", "/other-project"),
       "Alpha",
     );
   });
@@ -125,7 +131,9 @@ suite("TimeReport Test Suite", () => {
       feature: { "/project-a": "Alpha" },
     };
     assert.strictEqual(
-      provider.lookupProject(projects, "unknown", "/project-a"),
+      // @ts-ignore
+      // @ts-ignore
+      (provider as any).lookupProject(projects, "unknown", "/project-a"),
       "",
     );
   });
@@ -165,7 +173,9 @@ suite("TimeReport Test Suite", () => {
       main: { "/project": "Alpha" },
       develop: { "/project": "Beta" },
     };
-    provider.assignBranches(report, projects);
+    // @ts-ignore
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects);
 
     // Only the winning entry for 09:00 should remain (main has 3 files vs 1)
     assert.strictEqual(report.entries.length, 1);
@@ -222,7 +232,9 @@ suite("TimeReport Test Suite", () => {
       main: { "/project": "Alpha" },
       develop: { "/project": "Beta" },
     };
-    provider.assignBranches(report, projects);
+    // @ts-ignore
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects);
 
     // Only the winning entry per time key should remain
     assert.strictEqual(report.entries.length, 2);
@@ -256,7 +268,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, {});
+    // @ts-ignore
+    (provider as any).assignBranches(report, {});
 
     assert.strictEqual(report.entries[0].assignedBranch, "feature-x");
     assert.strictEqual(report.entries[0].project, "");
@@ -283,7 +296,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, projects);
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects);
 
     assert.strictEqual(report.entries[0].project, "MyProject");
   });
@@ -309,7 +323,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, projects);
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects);
 
     assert.strictEqual(report.entries[0].project, "SavedProject");
   });
@@ -335,7 +350,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, projects);
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects);
 
     assert.strictEqual(report.entries[0].project, "LookedUp");
   });
@@ -361,7 +377,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, projects, true);
+    // @ts-ignore
+    (provider as any).assignBranches(report, projects, true);
 
     // forceRefresh should update assignedBranch but NOT override existing project
     assert.strictEqual(report.entries[0].project, "OldProject");
@@ -399,7 +416,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, {});
+    // @ts-ignore
+    (provider as any).assignBranches(report, {});
 
     // Only 1 entry should remain for key 09:00
     assert.strictEqual(report.entries.length, 1);
@@ -452,7 +470,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, {});
+    // @ts-ignore
+    (provider as any).assignBranches(report, {});
 
     // Only 1 entry: main-/projB wins with 3 files
     assert.strictEqual(report.entries.length, 1);
@@ -515,7 +534,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, {});
+    // @ts-ignore
+    (provider as any).assignBranches(report, {});
 
     // 2 entries should remain: one per time key
     assert.strictEqual(report.entries.length, 2);
@@ -556,7 +576,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.assignBranches(report, {});
+    // @ts-ignore
+    (provider as any).assignBranches(report, {});
 
     assert.strictEqual(report.entries.length, 2);
     assert.strictEqual(report.entries[1].key, "23:30");
@@ -572,7 +593,11 @@ suite("TimeReport Test Suite", () => {
     const defaultBranchProjects = (provider as any).defaultBranchProjects;
     defaultBranchProjects["main\0/project"] = "InMemoryProject";
 
-    const result = provider.lookupProject(projects, "main", "/project");
+    const result = (provider as any).lookupProject(
+      projects,
+      "main",
+      "/project",
+    );
     assert.strictEqual(result, "InMemoryProject");
 
     // Clean up
@@ -584,7 +609,11 @@ suite("TimeReport Test Suite", () => {
       main: { "/project": "Persisted" },
     };
 
-    const result = provider.lookupProject(projects, "main", "/project");
+    const result = (provider as any).lookupProject(
+      projects,
+      "main",
+      "/project",
+    );
     assert.strictEqual(result, "Persisted");
   });
 
@@ -596,7 +625,11 @@ suite("TimeReport Test Suite", () => {
     const defaultBranchProjects = (provider as any).defaultBranchProjects;
     defaultBranchProjects["feature\0/project"] = "InMemory";
 
-    const result = provider.lookupProject(projects, "feature", "/project");
+    const result = (provider as any).lookupProject(
+      projects,
+      "feature",
+      "/project",
+    );
     assert.strictEqual(result, "FromFile");
 
     // Clean up
@@ -637,7 +670,11 @@ suite("TimeReport Test Suite", () => {
     const defaultBranchProjects = (provider as any).defaultBranchProjects;
     defaultBranchProjects["no-branch\0/project"] = "InMemory";
 
-    const result = provider.lookupProject(projects, "no-branch", "/project");
+    const result = (provider as any).lookupProject(
+      projects,
+      "no-branch",
+      "/project",
+    );
     assert.strictEqual(result, "InMemory");
 
     // Clean up
@@ -937,7 +974,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.updateStartEndOfDay(report);
+    (provider as any).viewModelInstance.setReport(report);
+    (provider as any).viewModelInstance.updateStartEndOfDay();
     assert.strictEqual(report.startOfDay, "09:00");
     assert.strictEqual(report.endOfDay, "10:45");
   });
@@ -961,7 +999,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.updateStartEndOfDay(report);
+    (provider as any).viewModelInstance.setReport(report);
+    (provider as any).viewModelInstance.updateStartEndOfDay();
     assert.strictEqual(report.startOfDay, "07:00");
     assert.strictEqual(report.endOfDay, "18:00");
   });
@@ -995,7 +1034,8 @@ suite("TimeReport Test Suite", () => {
       ],
     };
 
-    provider.updateStartEndOfDay(report);
+    (provider as any).viewModelInstance.setReport(report);
+    (provider as any).viewModelInstance.updateStartEndOfDay();
     assert.strictEqual(report.startOfDay, "08:00");
     assert.strictEqual(report.endOfDay, "17:45");
   });
@@ -1008,7 +1048,8 @@ suite("TimeReport Test Suite", () => {
       entries: [] as any[],
     };
 
-    provider.updateStartEndOfDay(report);
+    (provider as any).viewModelInstance.setReport(report);
+    (provider as any).viewModelInstance.updateStartEndOfDay();
     assert.strictEqual(report.startOfDay, "09:00");
     assert.strictEqual(report.endOfDay, "17:00");
   });
@@ -1273,9 +1314,9 @@ suite("TimeReport Test Suite", () => {
     // First load should populate the view model
     const report1 = await (provider as any).loadTimeReport();
     assert.ok(report1.entries.length > 0);
-    assert.strictEqual((provider as any).viewModel, report1);
+    assert.strictEqual((provider as any).currentReport, report1);
     assert.strictEqual(
-      (provider as any).viewModelDate,
+      (provider as any).currentReportDate,
       (provider as any).getDateString(),
     );
   });
@@ -1330,9 +1371,9 @@ suite("TimeReport Test Suite", () => {
     await (provider as any).saveReportToFile(reportData);
 
     // View model should be updated
-    assert.strictEqual((provider as any).viewModel, reportData);
+    assert.strictEqual((provider as any).currentReport, reportData);
     assert.strictEqual(
-      (provider as any).viewModelDate,
+      (provider as any).currentReportDate,
       (provider as any).getDateString(),
     );
 
@@ -1413,12 +1454,12 @@ suite("TimeReport Test Suite", () => {
     );
 
     await (provider as any).loadTimeReport();
-    assert.ok((provider as any).viewModel !== null);
+    assert.ok((provider as any).currentReport !== null);
 
     // Reset should clear the cache
     provider.resetViewModel();
-    assert.strictEqual((provider as any).viewModel, null);
-    assert.strictEqual((provider as any).viewModelDate, null);
+    assert.strictEqual((provider as any).currentReport, null);
+    assert.strictEqual((provider as any).currentReportDate, null);
     assert.strictEqual((provider as any).processedBatchFiles.size, 0);
   });
 
@@ -1474,5 +1515,339 @@ suite("TimeReport Test Suite", () => {
   test("triggerSave does not throw when panel is null", () => {
     assert.strictEqual((provider as any).panel, null);
     assert.doesNotThrow(() => provider.triggerSave());
+  });
+
+  test("exportHtml writes webview HTML to temp file", async () => {
+    // Set up a report with potential duplicates (same key:directory, different branches, same project)
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      startOfDay: "09:00",
+      endOfDay: "10:00",
+      entries: [
+        {
+          key: "09:00",
+          branch: "branch1",
+          directory: "/project",
+          files: ["a.ts"],
+          fileDetails: [{ file: "a.ts", timestamp: now.getTime() }],
+          comment: "",
+          project: "TestProject",
+          assignedBranch: "branch1",
+        },
+        {
+          key: "09:00", // Same key
+          branch: "branch2", // Different branch
+          directory: "/project", // Same directory
+          files: ["b.ts"],
+          fileDetails: [{ file: "b.ts", timestamp: now.getTime() }],
+          comment: "",
+          project: "TestProject", // Same project
+          assignedBranch: "branch2",
+        },
+        {
+          key: "09:15",
+          branch: "branch3",
+          directory: "/other",
+          files: ["c.ts"],
+          fileDetails: [{ file: "c.ts", timestamp: now.getTime() }],
+          comment: "",
+          project: "OtherProject",
+          assignedBranch: "branch3",
+        },
+      ],
+    };
+
+    const projects = {
+      branch1: { "/project": "TestProject" },
+      branch2: { "/project": "TestProject" },
+      branch3: { "/other": "OtherProject" },
+    };
+
+    // Set the current report and date
+    (provider as any).currentReport = report;
+    (provider as any).currentDate = now;
+
+    // Run the full pipeline: deduplicate entries then compute overview
+    (provider as any).assignBranches(report, projects, true);
+    const overview = (provider as any).computeOverview(report, projects);
+    const html = (provider as any).getHtmlContent(report, overview, projects);
+
+    // Mock the panel with the generated HTML
+    const mockWebview = { html: html };
+    const mockPanel = { webview: mockWebview };
+    (provider as any).panel = mockPanel;
+
+    // Call handleMessage with exportHtml command
+    await (provider as any).handleMessage({ command: "exportHtml" });
+
+    // Check that a file was created in tmpdir with the HTML content
+    const tmpDir = os.tmpdir();
+    const files = await fs.readdir(tmpDir);
+    const exportFile = files.find(
+      (file) => file.startsWith("coft-report-") && file.endsWith(".html"),
+    );
+    assert.ok(exportFile, "Export file should be created");
+
+    const filePath = path.join(tmpDir, exportFile!);
+    const content = await fs.readFile(filePath, "utf-8");
+    assert.strictEqual(content, html);
+
+    // Verify grouping: overview should have only 1 entry for TestProject (unique key:directory)
+    const overviewTestProjectRows =
+      content
+        .match(/<tr class="project-group-entry">[\s\S]*?<\/tr>/g)
+        ?.filter((row) => row.includes("TestProject")) || [];
+    assert.strictEqual(
+      overviewTestProjectRows.length,
+      1,
+      "Overview should have only 1 entry for TestProject due to unique key:directory",
+    );
+
+    // Verify timetable: should have 2 rows (one per unique key:directory, but since same key:directory for TestProject, only one, plus one for OtherProject)
+    const timetableRows =
+      content.match(/<tr class="entry-row[\s\S]*?<\/tr>/g) || [];
+    assert.strictEqual(
+      timetableRows.length,
+      2,
+      "Timetable should have 2 rows: one for TestProject and one for OtherProject",
+    );
+
+    // Clean up
+    await fs.unlink(filePath);
+  });
+
+  test("shiftTimeKey shifts forward by one slot", () => {
+    const shifted = (provider as any).shiftTimeKey("09:00", 1);
+    assert.strictEqual(shifted, "09:15");
+  });
+
+  test("shiftTimeKey shifts backward by one slot", () => {
+    const shifted = (provider as any).shiftTimeKey("09:15", -1);
+    assert.strictEqual(shifted, "09:00");
+  });
+
+  test("shiftTimeKey returns null when shifting before midnight", () => {
+    const shifted = (provider as any).shiftTimeKey("00:00", -1);
+    assert.strictEqual(shifted, null);
+  });
+
+  test("shiftTimeKey returns null when shifting past end of day", () => {
+    const shifted = (provider as any).shiftTimeKey("23:45", 1);
+    assert.strictEqual(shifted, null);
+  });
+
+  test("copy-above button is disabled when slot above exists", () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+        {
+          key: "09:15",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    const projects = {};
+    const overview = (provider as any).computeOverview(report, projects);
+    const html = (provider as any).getHtmlContent(report, overview, projects);
+    // 09:15 row: slot above (09:00) exists → copy-above disabled
+    assert.ok(
+      html.includes('data-index="1" title="Copy above" disabled'),
+      "copy-above on 09:15 row should be disabled because 09:00 exists",
+    );
+  });
+
+  test("copy-below button is disabled when slot below exists", () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+        {
+          key: "09:15",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    const projects = {};
+    const overview = (provider as any).computeOverview(report, projects);
+    const html = (provider as any).getHtmlContent(report, overview, projects);
+    // 09:00 row: slot below (09:15) exists → copy-below disabled
+    assert.ok(
+      html.includes('data-index="0" title="Copy below" disabled'),
+      "copy-below on 09:00 row should be disabled because 09:15 exists",
+    );
+  });
+
+  test("copy-above button is enabled when slot above does not exist", () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:15",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    const projects = {};
+    const overview = (provider as any).computeOverview(report, projects);
+    const html = (provider as any).getHtmlContent(report, overview, projects);
+    assert.ok(
+      !html.includes('title="Copy above" disabled'),
+      "copy-above should not be disabled when the slot above does not exist",
+    );
+  });
+
+  test("copy-below button is enabled when slot below does not exist", () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "",
+          project: "",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    const projects = {};
+    const overview = (provider as any).computeOverview(report, projects);
+    const html = (provider as any).getHtmlContent(report, overview, projects);
+    assert.ok(
+      !html.includes('title="Copy below" disabled'),
+      "copy-below should not be disabled when the slot below does not exist",
+    );
+  });
+
+  test("handleMessage copyRow creates new entry above", async () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:15",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "work",
+          project: "P",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    (provider as any).currentReport = report;
+    (provider as any).currentDate = now;
+    (provider as any).cachedProjects = {};
+    (provider as any).viewModelInstance.setReport(report);
+
+    const mockPanel = { webview: { html: "" }, reveal: () => {} };
+    (provider as any).panel = mockPanel;
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({
+      command: "copyRow",
+      index: 0,
+      direction: "above",
+    });
+
+    const entries = (provider as any).viewModelInstance.report
+      ?.entries as Array<{ key: string }>;
+    assert.ok(
+      entries.some((e) => e.key === "09:00"),
+      "Entry at 09:00 should have been created",
+    );
+    assert.ok(
+      entries.some((e) => e.key === "09:15"),
+      "Original entry at 09:15 should still exist",
+    );
+  });
+
+  test("handleMessage copyRow creates new entry below", async () => {
+    const now = new Date();
+    const report = {
+      date: now.toISOString(),
+      entries: [
+        {
+          key: "09:00",
+          branch: "b",
+          directory: "/d",
+          files: [],
+          fileDetails: [],
+          comment: "work",
+          project: "P",
+          assignedBranch: "b",
+        },
+      ],
+    };
+    (provider as any).currentReport = report;
+    (provider as any).currentDate = now;
+    (provider as any).cachedProjects = {};
+    (provider as any).viewModelInstance.setReport(report);
+
+    const mockPanel = { webview: { html: "" }, reveal: () => {} };
+    (provider as any).panel = mockPanel;
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({
+      command: "copyRow",
+      index: 0,
+      direction: "below",
+    });
+
+    const entries = (provider as any).viewModelInstance.report
+      ?.entries as Array<{ key: string }>;
+    assert.ok(
+      entries.some((e) => e.key === "09:15"),
+      "Entry at 09:15 should have been created",
+    );
+    assert.ok(
+      entries.some((e) => e.key === "09:00"),
+      "Original entry at 09:00 should still exist",
+    );
   });
 });

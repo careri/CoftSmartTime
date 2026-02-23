@@ -27,4 +27,8 @@ export class Logger {
   error(message: string): void {
     this.outputChannel.appendLine(this.formatMessage("ERROR", message));
   }
+
+  isDebugEnabled(): boolean {
+    return this.debugEnabled;
+  }
 }
