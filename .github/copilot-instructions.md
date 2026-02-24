@@ -144,7 +144,7 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 
 ## Plans
 
-When working on plans always write a suggested solution to the plan before starting to iimplement. This allows for feedback and course correction before investing time in implementation. The plan should include:
+When working on plans always write a suggested solution back into the plan file (e.g. `CHANGE.PLAN.md`) before starting to implement, then stop and wait for the user to confirm before proceeding. This allows for feedback and course correction before investing time in implementation. The plan should include:
 
 - A clear description of the problem being solved
 - A proposed solution with key steps and components

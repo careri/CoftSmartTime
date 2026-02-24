@@ -1850,4 +1850,49 @@ suite("TimeReport Test Suite", () => {
       "Original entry at 09:00 should still exist",
     );
   });
+
+  // ── Regression: prev day button command name ──────────────────────────────
+
+  test("handleMessage previousDay moves currentDate back by one day", async () => {
+    const now = new Date(2026, 1, 15); // Feb 15 2026
+    (provider as any).currentDate = new Date(now);
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({ command: "previousDay" });
+
+    const after: Date = (provider as any).currentDate;
+    assert.strictEqual(after.getFullYear(), 2026);
+    assert.strictEqual(after.getMonth(), 1);
+    assert.strictEqual(
+      after.getDate(),
+      14,
+      "previousDay should move date back by 1",
+    );
+  });
+
+  test("handleMessage nextDay moves currentDate forward by one day", async () => {
+    const now = new Date(2026, 1, 15); // Feb 15 2026
+    (provider as any).currentDate = new Date(now);
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({ command: "nextDay" });
+
+    const after: Date = (provider as any).currentDate;
+    assert.strictEqual(
+      after.getDate(),
+      16,
+      "nextDay should move date forward by 1",
+    );
+  });
+
+  test("handleMessage previousDay crosses month boundary correctly", async () => {
+    (provider as any).currentDate = new Date(2026, 2, 1); // Mar 1 2026
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({ command: "previousDay" });
+
+    const after: Date = (provider as any).currentDate;
+    assert.strictEqual(after.getMonth(), 1, "should be February");
+    assert.strictEqual(after.getDate(), 28, "Feb 2026 has 28 days");
+  });
 });
