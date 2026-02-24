@@ -165,7 +165,8 @@ export class TimeSummaryProvider {
         break;
       case "openTimeReport":
         if (this.openTimeReportCallback) {
-          const date = new Date(message.date);
+          const [yr, mo, dy] = (message.date as string).split("-").map(Number);
+          const date = new Date(yr, mo - 1, dy);
           await this.openTimeReportCallback(date);
         }
         break;
@@ -178,8 +179,9 @@ export class TimeSummaryProvider {
     }
     const projectTotals: { [project: string]: number } = {};
     for (const report of this.reports) {
-      const date = new Date(report.date).toISOString().split("T")[0];
-      const entry = this.summaryData.dateEntries.find((d) => d.date === date);
+      const entry = this.summaryData.dateEntries.find(
+        (d) => d.date === report.date,
+      );
       if (entry && entry.include) {
         for (const e of report.entries) {
           const project = e.project || "Unassigned";
@@ -220,7 +222,7 @@ export class TimeSummaryProvider {
       const saved = await this.timeReportRepository.readReport(d);
       if (saved) {
         const report: TimeReport = {
-          date: d.toISOString(),
+          date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
           entries: saved.entries.map((e) => ({
             key: e.key,
             branch: e.branch,
@@ -246,12 +248,12 @@ export class TimeSummaryProvider {
     const dateEntries: DateEntry[] = [];
 
     for (const report of reports) {
-      const date = new Date(report.date).toISOString().split("T")[0];
-      const isWeekend =
-        new Date(report.date).getDay() === 0 ||
-        new Date(report.date).getDay() === 6;
-      let totalSlots = report.entries.length;
-      const dayOfWeek = new Date(report.date).toLocaleDateString(undefined, {
+      const [yr, mo, dy] = report.date.split("-").map(Number);
+      const localDate = new Date(yr, mo - 1, dy);
+      const date = report.date;
+      const isWeekend = localDate.getDay() === 0 || localDate.getDay() === 6;
+      const totalSlots = report.entries.length;
+      const dayOfWeek = localDate.toLocaleDateString(undefined, {
         weekday: "short",
       });
       dateEntries.push({
@@ -264,8 +266,7 @@ export class TimeSummaryProvider {
 
     // Now compute projectTotals based on included dates
     for (const report of reports) {
-      const date = new Date(report.date).toISOString().split("T")[0];
-      const entry = dateEntries.find((d) => d.date === date);
+      const entry = dateEntries.find((d) => d.date === report.date);
       if (entry && entry.include) {
         for (const e of report.entries) {
           const project = e.project || "Unassigned";

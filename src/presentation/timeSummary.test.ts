@@ -186,7 +186,7 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
     const provider = makeProvider();
     const reports: TimeReport[] = [
       {
-        date: "2026-02-10T00:00:00.000Z",
+        date: "2026-02-10",
         entries: [
           {
             key: "09:00",
@@ -221,7 +221,7 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
         ],
       },
       {
-        date: "2026-02-11T00:00:00.000Z",
+        date: "2026-02-11",
         entries: [
           {
             key: "10:00",
