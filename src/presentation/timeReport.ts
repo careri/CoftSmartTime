@@ -549,7 +549,7 @@ export class TimeReportProvider {
 
       // Build report entirely from batch data
       let report: TimeReport = {
-        date: this.currentDate.toISOString(),
+        date: dateStr,
         entries: [],
       };
       report = await this.batchService.mergeBatchesIntoTimeReport(

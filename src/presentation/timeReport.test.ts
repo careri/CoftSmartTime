@@ -1895,4 +1895,70 @@ suite("TimeReport Test Suite", () => {
     assert.strictEqual(after.getMonth(), 1, "should be February");
     assert.strictEqual(after.getDate(), 28, "Feb 2026 has 28 days");
   });
+
+  // ── Regression: copyRow + save persists the new row ───────────────────────
+
+  test("copyRow entry is persisted after save and survives reload", async () => {
+    const now = new Date(2026, 1, 24, 9, 0, 0); // Feb 24 2026 09:00
+    (provider as any).currentDate = now;
+
+    // Create a batch file so loadTimeReport has something to merge
+    const timestamp = now.getTime();
+    const batchesDir = path.join(testConfig.data, "batches");
+    const batchData = {
+      feature: {
+        "/project": [{ File: "a.ts", Timestamp: timestamp }],
+      },
+    };
+    await fs.writeFile(
+      path.join(batchesDir, `batch_${timestamp}_save.json`),
+      JSON.stringify(batchData),
+      "utf-8",
+    );
+
+    // Perform a full load so currentReport is populated (and date is set)
+    const report = await (provider as any).loadTimeReport();
+    assert.ok(
+      report.entries.length > 0,
+      "should have at least one entry from batch",
+    );
+
+    // Copy the first row below
+    (provider as any).viewModelInstance.setReport(report);
+    const mockPanel = { webview: { html: "" }, reveal: () => {} };
+    (provider as any).panel = mockPanel;
+    (provider as any).updateView = async () => {};
+
+    await (provider as any).handleMessage({
+      command: "copyRow",
+      index: 0,
+      direction: "below",
+    });
+
+    const entriesAfterCopy = (provider as any).viewModelInstance.report
+      ?.entries as Array<{ key: string }>;
+    assert.strictEqual(
+      entriesAfterCopy.length,
+      2,
+      "should have 2 entries after copy",
+    );
+
+    // Save with the updated entries (simulating what the webview sends)
+    await (provider as any).handleMessage({
+      command: "save",
+      entries: entriesAfterCopy,
+    });
+
+    // Reset cache so the next load re-reads from disk
+    provider.resetViewModel();
+    (provider as any).currentDate = now;
+
+    // Re-load and verify both entries are present
+    const reloaded = await (provider as any).loadTimeReport();
+    assert.strictEqual(
+      reloaded.entries.length,
+      2,
+      "reloaded report should contain both entries (original + copied row)",
+    );
+  });
 });
