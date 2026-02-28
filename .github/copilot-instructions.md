@@ -144,6 +144,8 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 
 ## Plans
 
+**NEVER ask the user whether to implement — always write the proposed solution into the plan file first, then stop and wait for confirmation. Do not implement anything until the user explicitly confirms.**
+
 When working on plans always write a suggested solution back into the plan file (e.g. `CHANGE.PLAN.md`) before starting to implement, then stop and wait for the user to confirm before proceeding. This allows for feedback and course correction before investing time in implementation. The plan should include:
 
 - A clear description of the problem being solved
