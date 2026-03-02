@@ -23,6 +23,9 @@ function createTestConfig(testRoot: string): CoftConfig {
     exportDir: "",
     exportAgeDays: 90,
     startOfWeek: "auto",
+    workingHoursDefault: 480,
+    workingHoursByDay: [0, 480, 480, 480, 480, 480, 0],
+    workingHoursMissingConfig: false,
   };
 }
 
@@ -95,6 +98,9 @@ suite("Storage Test Suite", () => {
       exportDir: "",
       exportAgeDays: 90,
       startOfWeek: "auto",
+    workingHoursDefault: 480,
+    workingHoursByDay: [0, 480, 480, 480, 480, 480, 0],
+    workingHoursMissingConfig: false,
     };
 
     const storage = new StorageManager(autoConfig, logger);

@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.59",
+  "version": "0.0.61",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -111,6 +111,75 @@
           "type": "boolean",
           "default": false,
           "description": "Enable debug logging for the extension."
+        },
+        "coft.smarttime.working.hours": {
+          "type": "number",
+          "minimum": 0,
+          "default": 8,
+          "description": "Default number of working hours per weekday (Mon–Fri). Used when no per-day override is set."
+        },
+        "coft.smarttime.working.hours.monday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Override working hours for Monday. Defaults to coft.smarttime.working.hours when unset."
+        },
+        "coft.smarttime.working.hours.tuesday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Override working hours for Tuesday. Defaults to coft.smarttime.working.hours when unset."
+        },
+        "coft.smarttime.working.hours.wednesday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Override working hours for Wednesday. Defaults to coft.smarttime.working.hours when unset."
+        },
+        "coft.smarttime.working.hours.thursday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Override working hours for Thursday. Defaults to coft.smarttime.working.hours when unset."
+        },
+        "coft.smarttime.working.hours.friday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Override working hours for Friday. Defaults to coft.smarttime.working.hours when unset."
+        },
+        "coft.smarttime.working.hours.saturday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": 0,
+          "description": "Working hours for Saturday. Defaults to 0."
+        },
+        "coft.smarttime.working.hours.sunday": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": 0,
+          "description": "Working hours for Sunday. Defaults to 0."
         }
       }
     }

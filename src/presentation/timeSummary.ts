@@ -1,5 +1,12 @@
 import * as vscode from "vscode";
-import { CoftConfig, getStartDayOfWeek } from "../application/config";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import {
+  CoftConfig,
+  getStartDayOfWeek,
+  resolveWorkingHours,
+} from "../application/config";
 import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
 import { Logger } from "../utils/logger";
@@ -14,11 +21,16 @@ interface DateEntry {
   workTime: number;
   include: boolean;
   dayOfWeek: string;
+  normalHours: number; // in minutes
 }
 
 interface SummaryData {
   summaryEntries: SummaryEntry[];
   dateEntries: DateEntry[];
+  grandTotalReportedMinutes: number;
+  grandTotalNormalMinutes: number;
+  grandDeltaMinutes: number; // reported - normal
+  configWarning: boolean;
 }
 
 export class TimeSummaryProvider {
@@ -170,6 +182,52 @@ export class TimeSummaryProvider {
           await this.openTimeReportCallback(date);
         }
         break;
+      case "updateNormalHours":
+        if (this.summaryData) {
+          const entry = this.summaryData.dateEntries.find(
+            (d) => d.date === message.date,
+          );
+          if (entry) {
+            const hours = parseFloat(message.hours);
+            entry.normalHours =
+              isNaN(hours) || hours < 0 ? 0 : Math.round(hours * 60);
+            this.recomputeSummary();
+            this.panel?.webview.postMessage({
+              command: "updateSummary",
+              data: this.summaryData,
+            });
+          }
+        }
+        break;
+      case "exportSummaryHtml":
+        await this.exportHtml();
+        break;
+    }
+  }
+
+  private async exportHtml(): Promise<void> {
+    if (!this.summaryData) {
+      return;
+    }
+    const downloadsDir = path.join(os.homedir(), "Downloads");
+    const defaultUri = vscode.Uri.file(
+      path.join(downloadsDir, "coft-summary.html"),
+    );
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri,
+      filters: { HTML: ["html"] },
+      title: "Export Summary HTML",
+    });
+    if (!uri) {
+      return;
+    }
+    try {
+      const html = this.getHtmlContent(this.summaryData);
+      await fs.promises.writeFile(uri.fsPath, html, "utf8");
+    } catch (err) {
+      await vscode.window.showErrorMessage(
+        `Failed to export summary HTML: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -178,11 +236,15 @@ export class TimeSummaryProvider {
       return;
     }
     const projectTotals: { [project: string]: number } = {};
+    let totalReported = 0;
+    let totalNormal = 0;
     for (const report of this.reports) {
       const entry = this.summaryData.dateEntries.find(
         (d) => d.date === report.date,
       );
       if (entry && entry.include) {
+        totalReported += entry.workTime;
+        totalNormal += entry.normalHours;
         for (const e of report.entries) {
           const project = e.project || "Unassigned";
           projectTotals[project] = (projectTotals[project] || 0) + 1;
@@ -195,6 +257,9 @@ export class TimeSummaryProvider {
         totalTime: projectTotals[project] * this.config.viewGroupByMinutes,
       }),
     );
+    this.summaryData.grandTotalReportedMinutes = totalReported;
+    this.summaryData.grandTotalNormalMinutes = totalNormal;
+    this.summaryData.grandDeltaMinutes = totalReported - totalNormal;
   }
 
   private async updateView(): Promise<void> {
@@ -206,10 +271,6 @@ export class TimeSummaryProvider {
       this.summaryData = this.computeSummary(this.reports);
     }
     this.panel.webview.html = this.getHtmlContent(this.summaryData);
-    this.panel.webview.postMessage({
-      command: "loadData",
-      data: this.summaryData,
-    });
   }
 
   private async loadReports(): Promise<TimeReport[]> {
@@ -246,6 +307,8 @@ export class TimeSummaryProvider {
   private computeSummary(reports: TimeReport[]): SummaryData {
     const projectTotals: { [project: string]: number } = {};
     const dateEntries: DateEntry[] = [];
+    let grandTotalReportedMinutes = 0;
+    let grandTotalNormalMinutes = 0;
 
     for (const report of reports) {
       const [yr, mo, dy] = report.date.split("-").map(Number);
@@ -256,11 +319,13 @@ export class TimeSummaryProvider {
       const dayOfWeek = localDate.toLocaleDateString(undefined, {
         weekday: "short",
       });
+      const normalHours = resolveWorkingHours(this.config, localDate);
       dateEntries.push({
         date,
         workTime: totalSlots * this.config.viewGroupByMinutes,
         include: !isWeekend,
         dayOfWeek,
+        normalHours,
       });
     }
 
@@ -268,6 +333,8 @@ export class TimeSummaryProvider {
     for (const report of reports) {
       const entry = dateEntries.find((d) => d.date === report.date);
       if (entry && entry.include) {
+        grandTotalReportedMinutes += entry.workTime;
+        grandTotalNormalMinutes += entry.normalHours;
         for (const e of report.entries) {
           const project = e.project || "Unassigned";
           projectTotals[project] = (projectTotals[project] || 0) + 1;
@@ -282,7 +349,22 @@ export class TimeSummaryProvider {
       }))
       .sort((a, b) => b.totalTime - a.totalTime);
 
-    return { summaryEntries, dateEntries };
+    return {
+      summaryEntries,
+      dateEntries,
+      grandTotalReportedMinutes,
+      grandTotalNormalMinutes,
+      grandDeltaMinutes: grandTotalReportedMinutes - grandTotalNormalMinutes,
+      configWarning: this.config.workingHoursMissingConfig,
+    };
+  }
+
+  private formatMinutes(totalMinutes: number): string {
+    const sign = totalMinutes < 0 ? "-" : "";
+    const abs = Math.abs(totalMinutes);
+    const hours = Math.floor(abs / 60);
+    const minutes = abs % 60;
+    return hours > 0 ? `${sign}${hours}h ${minutes}m` : `${sign}${minutes}m`;
   }
 
   private getHtmlContent(summary: SummaryData): string {
@@ -291,22 +373,27 @@ export class TimeSummaryProvider {
 
     const summaryRows = summary.summaryEntries
       .map((entry) => {
-        const hours = Math.floor(entry.totalTime / 60);
-        const minutes = entry.totalTime % 60;
-        const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        const timeStr = this.formatMinutes(entry.totalTime);
         return `<tr><td>${this.escapeHtml(entry.project)}</td><td>${timeStr}</td></tr>`;
       })
       .join("");
 
+    const deltaColor = summary.grandDeltaMinutes >= 0 ? "#4caf50" : "#f44336";
+    const deltaStr = this.formatMinutes(summary.grandDeltaMinutes);
+    const grandTotalStr = this.formatMinutes(summary.grandTotalReportedMinutes);
+
     const dateRows = summary.dateEntries
       .map((entry) => {
-        const hours = Math.floor(entry.workTime / 60);
-        const minutes = entry.workTime % 60;
-        const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        const timeStr = this.formatMinutes(entry.workTime);
+        const normalHoursVal = (entry.normalHours / 60).toString();
         const checked = entry.include ? "checked" : "";
-        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td><a href="#" onclick="openTimeReport('${entry.date}')">${entry.date}</a></td><td>${entry.dayOfWeek}</td><td>${timeStr}</td></tr>`;
+        return `<tr><td><input type="checkbox" ${checked} data-date="${entry.date}"></td><td><a href="#" onclick="openTimeReport('${entry.date}')">${entry.date}</a></td><td>${entry.dayOfWeek}</td><td>${timeStr}</td><td><input type="number" class="normal-hours-input" min="0" step="0.5" value="${normalHoursVal}" data-date="${entry.date}"></td></tr>`;
       })
       .join("");
+
+    const warningBanner = summary.configWarning
+      ? `<div id="configWarning" style="background:#856404;color:#fff3cd;border:1px solid #856404;padding:10px 16px;margin-bottom:12px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;"><span>&#9888; <strong>coft.smarttime.working.hours</strong> is not configured. Defaulting to 8 hours/weekday.</span><button onclick="document.getElementById('configWarning').style.display='none'" style="background:transparent;color:#fff3cd;border:1px solid #fff3cd;padding:2px 8px;cursor:pointer;border-radius:3px;">&#x2715;</button></div>`
+      : "";
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -316,14 +403,17 @@ export class TimeSummaryProvider {
     <title>COFT Time Summary</title>
     <style>
         body { font-family: var(--vscode-font-family); padding: 20px; }
-        button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; cursor: pointer; }
+        button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; cursor: pointer; margin-right: 4px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
         th { background-color: var(--vscode-editor-lineHighlightBackground); }
+        .normal-hours-input { width: 60px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
+        .footer-row td { border-top: 2px solid var(--vscode-panel-border); font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>Time Summary: ${startStr} - ${endStr}</h1>
+    ${warningBanner}
     <div>
         <button id="currentWeek">Current Week</button>
         <button id="currentMonth">Current Month</button>
@@ -331,35 +421,47 @@ export class TimeSummaryProvider {
         <button id="forwardWeek">Week →</button>
         <button id="backMonth">← Month</button>
         <button id="forwardMonth">Month →</button>
+        <button id="exportHtml">Export HTML</button>
     </div>
     <h2>Summary by Project</h2>
     <table id="summaryTable">
         <thead><tr><th>Project</th><th>Time</th></tr></thead>
         <tbody>${summaryRows}</tbody>
+        <tfoot>
+            <tr class="footer-row"><td>Time difference</td><td id="grandDelta" style="color:${deltaColor}">${deltaStr}</td></tr>
+            <tr class="footer-row"><td>Grand total (reported)</td><td id="grandTotal">${grandTotalStr}</td></tr>
+        </tfoot>
     </table>
     <h2>Dates</h2>
     <table>
-        <thead><tr><th>Include</th><th>Date</th><th>Day</th><th>Work Time</th></tr></thead>
+        <thead><tr><th>Include</th><th>Date</th><th>Day</th><th>Work Time</th><th>Normal Hours</th></tr></thead>
         <tbody>${dateRows}</tbody>
     </table>
     <script>
         const vscode = acquireVsCodeApi();
         window.addEventListener('message', event => {
             const message = event.data;
-            if (message.command === 'loadData') {
-                // Optionally update state
-            } else if (message.command === 'updateSummary') {
-                updateSummaryTable(message.data.summaryEntries);
+            if (message.command === 'updateSummary') {
+                updateSummaryTable(message.data);
             }
         });
-        function updateSummaryTable(summaryEntries) {
+        function formatMinutes(totalMinutes) {
+            const sign = totalMinutes < 0 ? '-' : '';
+            const abs = Math.abs(totalMinutes);
+            const hours = Math.floor(abs / 60);
+            const minutes = abs % 60;
+            return hours > 0 ? sign + hours + 'h ' + minutes + 'm' : sign + minutes + 'm';
+        }
+        function updateSummaryTable(data) {
             const tbody = document.querySelector('#summaryTable tbody');
-            tbody.innerHTML = summaryEntries.map(entry => {
-                const hours = Math.floor(entry.totalTime / 60);
-                const minutes = entry.totalTime % 60;
-                const timeStr = hours > 0 ? hours + 'h ' + minutes + 'm' : minutes + 'm';
-                return '<tr><td>' + escapeHtml(entry.project) + '</td><td>' + timeStr + '</td></tr>';
+            tbody.innerHTML = data.summaryEntries.map(entry => {
+                return '<tr><td>' + escapeHtml(entry.project) + '</td><td>' + formatMinutes(entry.totalTime) + '</td></tr>';
             }).join('');
+            const delta = data.grandDeltaMinutes;
+            const deltaEl = document.getElementById('grandDelta');
+            deltaEl.textContent = formatMinutes(delta);
+            deltaEl.style.color = delta >= 0 ? '#4caf50' : '#f44336';
+            document.getElementById('grandTotal').textContent = formatMinutes(data.grandTotalReportedMinutes);
         }
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -375,9 +477,15 @@ export class TimeSummaryProvider {
         document.getElementById('forwardWeek').addEventListener('click', () => vscode.postMessage({ command: 'forward', unit: 'week' }));
         document.getElementById('backMonth').addEventListener('click', () => vscode.postMessage({ command: 'back', unit: 'month' }));
         document.getElementById('forwardMonth').addEventListener('click', () => vscode.postMessage({ command: 'forward', unit: 'month' }));
+        document.getElementById('exportHtml').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryHtml' }));
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 vscode.postMessage({ command: 'toggleInclude', date: e.target.dataset.date, include: e.target.checked });
+            });
+        });
+        document.querySelectorAll('.normal-hours-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                vscode.postMessage({ command: 'updateNormalHours', date: e.target.dataset.date, hours: e.target.value });
             });
         });
     </script>

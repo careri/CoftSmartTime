@@ -18,6 +18,20 @@ export interface CoftConfig {
   exportDir: string;
   exportAgeDays: number;
   startOfWeek: string;
+  /** Default working hours per weekday in minutes. */
+  workingHoursDefault: number;
+  /** Per-weekday working hours in minutes. Index 0 = Sunday, 1 = Monday, …, 6 = Saturday. */
+  workingHoursByDay: number[];
+  /** True when the master `coft.smarttime.working.hours` setting is absent; a fallback of 8 h is used. */
+  workingHoursMissingConfig: boolean;
+}
+
+/**
+ * Returns the normal working hours (in minutes) for the given date,
+ * using per-weekday overrides when available, falling back to the master default.
+ */
+export function resolveWorkingHours(config: CoftConfig, date: Date): number {
+  return config.workingHoursByDay[date.getDay()];
 }
 
 export function getStartDayOfWeek(startOfWeek: string): number {
@@ -103,6 +117,54 @@ export class ConfigManager {
     // Get start of week
     const startOfWeek = config.get<string>("startOfWeek", "auto");
 
+    // Get working hours
+    const masterHoursRaw = config.get<number | undefined>(
+      "working.hours",
+      undefined,
+    );
+    const workingHoursMissingConfig =
+      masterHoursRaw === undefined ||
+      masterHoursRaw === null ||
+      typeof masterHoursRaw !== "number" ||
+      masterHoursRaw < 0 ||
+      isNaN(masterHoursRaw);
+    const masterHoursPerDay = workingHoursMissingConfig ? 8 : masterHoursRaw!;
+
+    const dayNames = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    const defaultsByDow = [
+      0,
+      masterHoursPerDay,
+      masterHoursPerDay,
+      masterHoursPerDay,
+      masterHoursPerDay,
+      masterHoursPerDay,
+      0,
+    ];
+    const workingHoursByDay: number[] = dayNames.map((day, idx) => {
+      const raw = config.get<number | undefined>(
+        `working.hours.${day}`,
+        undefined,
+      );
+      if (
+        raw === undefined ||
+        raw === null ||
+        typeof raw !== "number" ||
+        raw < 0 ||
+        isNaN(raw)
+      ) {
+        return defaultsByDow[idx] * 60;
+      }
+      return raw * 60;
+    });
+
     return {
       root,
       queue: path.join(root, "queue"),
@@ -118,6 +180,9 @@ export class ConfigManager {
       exportDir,
       exportAgeDays,
       startOfWeek,
+      workingHoursDefault: masterHoursPerDay * 60,
+      workingHoursByDay,
+      workingHoursMissingConfig,
     };
   }
 

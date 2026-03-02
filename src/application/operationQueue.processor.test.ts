@@ -27,6 +27,9 @@ function createTestConfig(testRoot: string): CoftConfig {
     exportDir: "",
     exportAgeDays: 90,
     startOfWeek: "auto",
+    workingHoursDefault: 480,
+    workingHoursByDay: [0, 480, 480, 480, 480, 480, 0],
+    workingHoursMissingConfig: false,
   };
 }
 

@@ -10,7 +10,18 @@ import { TimeReport } from "../storage/batchRepository";
 function createTestConfig(
   testRoot: string,
   startOfWeek = "monday",
+  workingHoursDefault = 480,
 ): CoftConfig {
+  // Default: 8 h weekdays (480 min), 0 weekends
+  const workingHoursByDay = [
+    0,
+    workingHoursDefault,
+    workingHoursDefault,
+    workingHoursDefault,
+    workingHoursDefault,
+    workingHoursDefault,
+    0,
+  ];
   return {
     root: testRoot,
     queue: path.join(testRoot, "queue"),
@@ -26,6 +37,9 @@ function createTestConfig(
     exportDir: "",
     exportAgeDays: 90,
     startOfWeek,
+    workingHoursDefault,
+    workingHoursByDay,
+    workingHoursMissingConfig: false,
   };
 }
 
@@ -341,5 +355,101 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
     const startDate: Date = (provider as any).startDate;
     assert.strictEqual(startDate.getDate(), 1);
     assert.strictEqual(startDate.getMonth(), new Date().getMonth());
+  });
+});
+
+suite("TimeSummaryProvider Working Hours Test Suite", () => {
+  function makeProviderWithConfig(config: CoftConfig): TimeSummaryProvider {
+    const outputChannel = vscode.window.createOutputChannel("TimeSummary Test");
+    const logger = new Logger(outputChannel, false);
+    return new TimeSummaryProvider(config, logger);
+  }
+
+  function makeReport(
+    date: string,
+    slots: number,
+    project = "Proj",
+  ): TimeReport {
+    const entries = Array.from({ length: slots }, (_, i) => ({
+      key: `${String(i).padStart(2, "0")}:00`,
+      branch: "main",
+      directory: "/tmp",
+      files: [],
+      fileDetails: [],
+      comment: "",
+      project,
+      assignedBranch: "",
+    }));
+    return { date, entries };
+  }
+
+  test("computeSummary: grandTotalReportedMinutes sums included weekday work time", () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot);
+    const provider = makeProviderWithConfig(config);
+    // 2026-03-02 is a Monday; 4 slots * 15 min = 60 min reported
+    const reports: TimeReport[] = [makeReport("2026-03-02", 4)];
+    const summary = (provider as any).computeSummary(reports);
+    assert.strictEqual(summary.grandTotalReportedMinutes, 60);
+  });
+
+  test("computeSummary: grandTotalNormalMinutes uses resolved working hours for included dates", () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot, "monday", 480); // 8 h = 480 min
+    const provider = makeProviderWithConfig(config);
+    const reports: TimeReport[] = [makeReport("2026-03-02", 4)]; // Monday
+    const summary = (provider as any).computeSummary(reports);
+    assert.strictEqual(summary.grandTotalNormalMinutes, 480);
+  });
+
+  test("computeSummary: grandDeltaMinutes = reported - normal", () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot, "monday", 480);
+    const provider = makeProviderWithConfig(config);
+    // 4 slots * 15 min = 60 min reported; normal = 480 min → delta = -420
+    const reports: TimeReport[] = [makeReport("2026-03-02", 4)];
+    const summary = (provider as any).computeSummary(reports);
+    assert.strictEqual(summary.grandDeltaMinutes, 60 - 480);
+  });
+
+  test("computeSummary: weekend dates excluded by default; excluded dates skipped in totals", () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot);
+    const provider = makeProviderWithConfig(config);
+    // 2026-03-07 is a Saturday
+    const reports: TimeReport[] = [makeReport("2026-03-07", 4)];
+    const summary = (provider as any).computeSummary(reports);
+    assert.strictEqual(summary.grandTotalReportedMinutes, 0);
+    assert.strictEqual(summary.grandTotalNormalMinutes, 0);
+  });
+
+  test("computeSummary: configWarning reflects workingHoursMissingConfig", () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot);
+    config.workingHoursMissingConfig = true;
+    const provider = makeProviderWithConfig(config);
+    const summary = (provider as any).computeSummary([]);
+    assert.strictEqual(summary.configWarning, true);
+  });
+
+  test("handleMessage 'updateNormalHours' updates normalHours and recomputes", async () => {
+    const testRoot = path.join(os.tmpdir(), `coft-wh-test-${Date.now()}`);
+    const config = createTestConfig(testRoot);
+    const provider = makeProviderWithConfig(config);
+    const reports: TimeReport[] = [makeReport("2026-03-02", 4)];
+    (provider as any).reports = reports;
+    (provider as any).summaryData = (provider as any).computeSummary(reports);
+    // Override normal hours for 2026-03-02 to 7 h
+    await (provider as any).handleMessage({
+      command: "updateNormalHours",
+      date: "2026-03-02",
+      hours: "7",
+    });
+    const summaryData = (provider as any).summaryData;
+    const entry = summaryData.dateEntries.find(
+      (d: any) => d.date === "2026-03-02",
+    );
+    assert.strictEqual(entry.normalHours, 420); // 7 * 60
+    assert.strictEqual(summaryData.grandTotalNormalMinutes, 420);
   });
 });
