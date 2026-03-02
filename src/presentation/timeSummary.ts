@@ -11,6 +11,8 @@ import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
 import { Logger } from "../utils/logger";
 
+type PeriodType = "week" | "month";
+
 interface SummaryEntry {
   project: string;
   totalTime: number;
@@ -37,6 +39,7 @@ export class TimeSummaryProvider {
   private config: CoftConfig;
   private startDate: Date;
   private endDate: Date;
+  private currentPeriod: PeriodType = "month";
   private panel: vscode.WebviewPanel | null = null;
   private timeReportRepository: TimeReportRepository;
   private summaryData: SummaryData | null = null;
@@ -53,7 +56,7 @@ export class TimeSummaryProvider {
     this.timeReportRepository = new TimeReportRepository(config);
     this.startDate = new Date();
     this.endDate = new Date();
-    this.setCurrentWeek();
+    this.setCurrentMonth();
   }
 
   private setCurrentWeek(): void {
@@ -136,26 +139,25 @@ export class TimeSummaryProvider {
 
   private async handleMessage(message: any): Promise<void> {
     switch (message.command) {
-      case "currentWeek":
-        this.setCurrentWeek();
-        this.reports = [];
-        this.summaryData = null;
-        await this.updateView();
-        break;
-      case "currentMonth":
-        this.setCurrentMonth();
+      case "setPeriod":
+        this.currentPeriod = message.period as PeriodType;
+        if (this.currentPeriod === "week") {
+          this.setCurrentWeek();
+        } else {
+          this.setCurrentMonth();
+        }
         this.reports = [];
         this.summaryData = null;
         await this.updateView();
         break;
       case "forward":
-        this.moveForward(message.unit);
+        this.moveForward(this.currentPeriod);
         this.reports = [];
         this.summaryData = null;
         await this.updateView();
         break;
       case "back":
-        this.moveBack(message.unit);
+        this.moveBack(this.currentPeriod);
         this.reports = [];
         this.summaryData = null;
         await this.updateView();
@@ -415,12 +417,12 @@ export class TimeSummaryProvider {
     <h1>Time Summary: ${startStr} - ${endStr}</h1>
     ${warningBanner}
     <div>
-        <button id="currentWeek">Current Week</button>
-        <button id="currentMonth">Current Month</button>
-        <button id="backWeek">← Week</button>
-        <button id="forwardWeek">Week →</button>
-        <button id="backMonth">← Month</button>
-        <button id="forwardMonth">Month →</button>
+        <select id="periodSelect">
+            <option value="week"${this.currentPeriod === "week" ? " selected" : ""}>Week</option>
+            <option value="month"${this.currentPeriod === "month" ? " selected" : ""}>Month</option>
+        </select>
+        <button id="back">←</button>
+        <button id="forward">→</button>
         <button id="exportHtml">Export HTML</button>
     </div>
     <h2>Summary by Project</h2>
@@ -471,12 +473,9 @@ export class TimeSummaryProvider {
         function openTimeReport(date) {
             vscode.postMessage({ command: 'openTimeReport', date: date });
         }
-        document.getElementById('currentWeek').addEventListener('click', () => vscode.postMessage({ command: 'currentWeek' }));
-        document.getElementById('currentMonth').addEventListener('click', () => vscode.postMessage({ command: 'currentMonth' }));
-        document.getElementById('backWeek').addEventListener('click', () => vscode.postMessage({ command: 'back', unit: 'week' }));
-        document.getElementById('forwardWeek').addEventListener('click', () => vscode.postMessage({ command: 'forward', unit: 'week' }));
-        document.getElementById('backMonth').addEventListener('click', () => vscode.postMessage({ command: 'back', unit: 'month' }));
-        document.getElementById('forwardMonth').addEventListener('click', () => vscode.postMessage({ command: 'forward', unit: 'month' }));
+        document.getElementById('periodSelect').addEventListener('change', (e) => vscode.postMessage({ command: 'setPeriod', period: e.target.value }));
+        document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
+        document.getElementById('forward').addEventListener('click', () => vscode.postMessage({ command: 'forward' }));
         document.getElementById('exportHtml').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryHtml' }));
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {

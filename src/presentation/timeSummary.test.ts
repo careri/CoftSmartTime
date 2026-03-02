@@ -59,18 +59,21 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
 
   test("setCurrentWeek with monday: startDate is a Monday", () => {
     const provider = makeProvider("monday");
+    (provider as any).setCurrentWeek();
     const startDate: Date = (provider as any).startDate;
     assert.strictEqual(startDate.getDay(), 1, "startDate should be Monday");
   });
 
   test("setCurrentWeek with sunday: startDate is a Sunday", () => {
     const provider = makeProvider("sunday");
+    (provider as any).setCurrentWeek();
     const startDate: Date = (provider as any).startDate;
     assert.strictEqual(startDate.getDay(), 0, "startDate should be Sunday");
   });
 
   test("setCurrentWeek: endDate is 6 days after startDate", () => {
     const provider = makeProvider("monday");
+    (provider as any).setCurrentWeek();
     const startDate: Date = (provider as any).startDate;
     const endDate: Date = (provider as any).endDate;
     const diff = Math.round(
@@ -81,7 +84,9 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
 
   test("setCurrentWeek: startDate is on or before today", () => {
     const provider = makeProvider("monday");
-    const startDate: Date = (provider as any).startDate;
+    (provider as any).setCurrentWeek();
+    const startDate: Date = new Date((provider as any).startDate);
+    startDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     assert.ok(startDate <= today, "startDate should not be in the future");
@@ -298,8 +303,9 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
 
   test("handleMessage 'back' week: moves startDate back 7 days", async () => {
     const provider = makeProvider();
+    (provider as any).currentPeriod = "week";
     const before: Date = new Date((provider as any).startDate);
-    await (provider as any).handleMessage({ command: "back", unit: "week" });
+    await (provider as any).handleMessage({ command: "back" });
     const after: Date = (provider as any).startDate;
     assert.strictEqual(
       before.getTime() - after.getTime(),
@@ -309,8 +315,9 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
 
   test("handleMessage 'forward' week: moves startDate forward 7 days", async () => {
     const provider = makeProvider();
+    (provider as any).currentPeriod = "week";
     const before: Date = new Date((provider as any).startDate);
-    await (provider as any).handleMessage({ command: "forward", unit: "week" });
+    await (provider as any).handleMessage({ command: "forward" });
     const after: Date = (provider as any).startDate;
     assert.strictEqual(
       after.getTime() - before.getTime(),
@@ -322,7 +329,7 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
     const provider = makeProvider();
     (provider as any).reports = [{ date: "2026-02-10", entries: [] }];
     (provider as any).summaryData = { summaryEntries: [], dateEntries: [] };
-    await (provider as any).handleMessage({ command: "back", unit: "week" });
+    await (provider as any).handleMessage({ command: "back" });
     assert.deepStrictEqual((provider as any).reports, []);
     assert.strictEqual((provider as any).summaryData, null);
   });
@@ -331,28 +338,36 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
     const provider = makeProvider();
     (provider as any).reports = [{ date: "2026-02-10", entries: [] }];
     (provider as any).summaryData = { summaryEntries: [], dateEntries: [] };
-    await (provider as any).handleMessage({ command: "forward", unit: "week" });
+    await (provider as any).handleMessage({ command: "forward" });
     assert.deepStrictEqual((provider as any).reports, []);
     assert.strictEqual((provider as any).summaryData, null);
   });
 
-  test("handleMessage 'currentWeek' resets to current week", async () => {
+  test("handleMessage 'setPeriod' week resets to current week", async () => {
     const provider = makeProvider();
     // Move far into the future first
     (provider as any).startDate = new Date(2099, 0, 1);
     (provider as any).endDate = new Date(2099, 0, 7);
-    await (provider as any).handleMessage({ command: "currentWeek" });
+    await (provider as any).handleMessage({
+      command: "setPeriod",
+      period: "week",
+    });
     const startDate: Date = (provider as any).startDate;
+    assert.strictEqual((provider as any).currentPeriod, "week");
     // Should now be in the current year
     assert.strictEqual(startDate.getFullYear(), new Date().getFullYear());
   });
 
-  test("handleMessage 'currentMonth' resets to current month", async () => {
+  test("handleMessage 'setPeriod' month resets to current month", async () => {
     const provider = makeProvider();
     (provider as any).startDate = new Date(2099, 0, 1);
     (provider as any).endDate = new Date(2099, 0, 31);
-    await (provider as any).handleMessage({ command: "currentMonth" });
+    await (provider as any).handleMessage({
+      command: "setPeriod",
+      period: "month",
+    });
     const startDate: Date = (provider as any).startDate;
+    assert.strictEqual((provider as any).currentPeriod, "month");
     assert.strictEqual(startDate.getDate(), 1);
     assert.strictEqual(startDate.getMonth(), new Date().getMonth());
   });
