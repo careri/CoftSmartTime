@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## .github/copilot-instructions.md
+
+**_ALWAYS READ THE INSTRUCTIONS_**
+
 ## Code style
 
 - Java

@@ -134,6 +134,8 @@ Communication between the webview and extension host uses `postMessage` / `onDid
 
 ## Code Conventions
 
+**USE_SMALL_CLASSES – prefer many small classes with single responsibility over large classes. If a class exceeds ~200 lines, consider refactoring into smaller components.**
+
 - Always use curly brackets (no bracketless single-line blocks)
 - Never use the `var` keyword
 - All public methods that write to disk go through `OperationQueueWriter`
