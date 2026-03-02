@@ -210,6 +210,9 @@ export class TimeSummaryProvider {
       case "exportSummaryHtml":
         await this.exportHtml();
         break;
+      case "copySummaryHtml":
+        await this.copyHtml();
+        break;
       case "updateDistributionStart":
         this.viewModel.setRange(message.date, this.viewModel.getEndDate());
         await this.updateView();
@@ -253,6 +256,15 @@ export class TimeSummaryProvider {
         `Failed to export summary HTML: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  }
+
+  private async copyHtml(): Promise<void> {
+    if (!this.summaryData) {
+      return;
+    }
+    const html = this.getHtmlContent(this.summaryData);
+    await vscode.env.clipboard.writeText(html);
+    await vscode.window.showInformationMessage("Summary HTML copied to clipboard.");
   }
 
   private recomputeSummary(): void {

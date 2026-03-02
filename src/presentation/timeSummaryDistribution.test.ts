@@ -2,7 +2,9 @@ import * as assert from "assert";
 import {
   FillByLargestDistributor,
   assignProjectsToDeltaRows,
+  computeProjectDistributionSummary,
   ProjectBucket,
+  DistributionRow,
 } from "./timeSummaryDistribution";
 import { DateEntry, SummaryEntry } from "./timeSummary";
 
@@ -258,5 +260,58 @@ suite("assignProjectsToDeltaRows", () => {
       [makeBucket("ProjectA", 60), makeBucket("ProjectB", 60)],
     );
     assert.ok(rows.every((r) => r.delta === true));
+  });
+});
+
+suite("computeProjectDistributionSummary", () => {
+  function makeRow(
+    project: string,
+    hours: number,
+    delta: boolean,
+  ): DistributionRow {
+    return { date: "2026-03-03", project, hours, totalDateHours: 480, delta };
+  }
+
+  test("returns empty map for no rows", () => {
+    const result = computeProjectDistributionSummary([]);
+    assert.strictEqual(result.size, 0);
+  });
+
+  test("normal rows contribute to normalMinutes only", () => {
+    const result = computeProjectDistributionSummary([
+      makeRow("ProjectA", 240, false),
+      makeRow("ProjectA", 120, false),
+    ]);
+    assert.strictEqual(result.get("ProjectA")?.normalMinutes, 360);
+    assert.strictEqual(result.get("ProjectA")?.deltaMinutes, 0);
+  });
+
+  test("delta rows contribute to deltaMinutes only", () => {
+    const result = computeProjectDistributionSummary([
+      makeRow("ProjectA", 60, true),
+    ]);
+    assert.strictEqual(result.get("ProjectA")?.normalMinutes, 0);
+    assert.strictEqual(result.get("ProjectA")?.deltaMinutes, 60);
+  });
+
+  test("mixed rows for same project split correctly", () => {
+    const result = computeProjectDistributionSummary([
+      makeRow("ProjectA", 480, false),
+      makeRow("ProjectA", 120, true),
+    ]);
+    assert.strictEqual(result.get("ProjectA")?.normalMinutes, 480);
+    assert.strictEqual(result.get("ProjectA")?.deltaMinutes, 120);
+  });
+
+  test("multiple projects are tracked independently", () => {
+    const result = computeProjectDistributionSummary([
+      makeRow("ProjectA", 300, false),
+      makeRow("ProjectB", 180, false),
+      makeRow("ProjectB", 60, true),
+    ]);
+    assert.strictEqual(result.get("ProjectA")?.normalMinutes, 300);
+    assert.strictEqual(result.get("ProjectA")?.deltaMinutes, 0);
+    assert.strictEqual(result.get("ProjectB")?.normalMinutes, 180);
+    assert.strictEqual(result.get("ProjectB")?.deltaMinutes, 60);
   });
 });

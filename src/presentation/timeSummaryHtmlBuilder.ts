@@ -1,5 +1,8 @@
 import { PeriodType, SummaryData } from "./timeSummary";
-import { DistributionRow } from "./timeSummaryDistribution";
+import {
+  computeProjectDistributionSummary,
+  DistributionRow,
+} from "./timeSummaryDistribution";
 import { DeltaAlgorithmType } from "./timeSummaryDeltaDistribution";
 
 export class TimeSummaryHtmlBuilder {
@@ -18,10 +21,21 @@ export class TimeSummaryHtmlBuilder {
     const startStr = startDate.toLocaleDateString();
     const endStr = endDate.toLocaleDateString();
 
+    const distributionSummary = computeProjectDistributionSummary(distributionRows);
+
     const summaryRows = summary.summaryEntries
       .map((entry) => {
         const timeStr = this.formatMinutes(entry.totalTime);
-        return `<tr><td>${this.escapeHtml(entry.project)}</td><td>${timeStr}</td></tr>`;
+        const dist = distributionSummary.get(entry.project);
+        const normalStr =
+          dist && dist.normalMinutes > 0
+            ? this.formatMinutes(dist.normalMinutes)
+            : "&mdash;";
+        const deltaStr2 =
+          dist && dist.deltaMinutes > 0
+            ? this.formatMinutes(dist.deltaMinutes)
+            : "&mdash;";
+        return `<tr><td>${this.escapeHtml(entry.project)}</td><td>${normalStr}</td><td>${deltaStr2}</td><td>${timeStr}</td></tr>`;
       })
       .join("");
 
@@ -109,10 +123,11 @@ export class TimeSummaryHtmlBuilder {
         <button id="back">←</button>
         <button id="forward">→</button>
         <button id="exportHtml">Export HTML</button>
+        <button id="copyHtml">Copy HTML</button>
     </div>
     <h2>Summary by Project</h2>
     <table id="summaryTable">
-        <thead><tr><th>Project</th><th>Time</th></tr></thead>
+        <thead><tr><th>Project</th><th>Normal Time</th><th>Delta Time</th><th>Time</th></tr></thead>
         <tbody>${summaryRows}</tbody>
         <tfoot>
             <tr class="footer-row"><td>Time difference</td><td id="grandDelta" style="color:${deltaColor}">${deltaStr}</td></tr>
@@ -163,7 +178,7 @@ export class TimeSummaryHtmlBuilder {
         function updateSummaryTable(data) {
             const tbody = document.querySelector('#summaryTable tbody');
             tbody.innerHTML = data.summaryEntries.map(entry => {
-                return '<tr><td>' + escapeHtml(entry.project) + '</td><td>' + formatMinutes(entry.totalTime) + '</td></tr>';
+                return '<tr><td>' + escapeHtml(entry.project) + '</td><td>&mdash;</td><td>&mdash;</td><td>' + formatMinutes(entry.totalTime) + '</td></tr>';
             }).join('');
             const delta = data.grandDeltaMinutes;
             const deltaEl = document.getElementById('grandDelta');
@@ -183,6 +198,7 @@ export class TimeSummaryHtmlBuilder {
         document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
         document.getElementById('forward').addEventListener('click', () => vscode.postMessage({ command: 'forward' }));
         document.getElementById('exportHtml').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryHtml' }));
+        document.getElementById('copyHtml').addEventListener('click', () => vscode.postMessage({ command: 'copySummaryHtml' }));
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 vscode.postMessage({ command: 'toggleInclude', date: e.target.dataset.date, include: e.target.checked });

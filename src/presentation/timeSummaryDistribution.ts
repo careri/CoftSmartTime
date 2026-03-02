@@ -120,3 +120,30 @@ export function assignProjectsToDeltaRows(
 
   return result;
 }
+
+export interface ProjectDistributionSummary {
+  project: string;
+  normalMinutes: number;
+  deltaMinutes: number;
+}
+
+export function computeProjectDistributionSummary(
+  rows: DistributionRow[],
+): Map<string, ProjectDistributionSummary> {
+  const map = new Map<string, ProjectDistributionSummary>();
+
+  for (const row of rows) {
+    let entry = map.get(row.project);
+    if (!entry) {
+      entry = { project: row.project, normalMinutes: 0, deltaMinutes: 0 };
+      map.set(row.project, entry);
+    }
+    if (row.delta) {
+      entry.deltaMinutes += row.hours;
+    } else {
+      entry.normalMinutes += row.hours;
+    }
+  }
+
+  return map;
+}
