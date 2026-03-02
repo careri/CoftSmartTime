@@ -1,6 +1,5 @@
 import { SummaryData } from "./timeSummary";
 import {
-  computeTargetMinutesForDate,
   DistributionAlgorithm,
   DistributionRow,
   FillByLargestDistributor,
@@ -96,15 +95,15 @@ export class TimeSummaryViewModel {
       summaryData.summaryEntries,
     );
 
-    const totalTarget = filtered.reduce(
-      (sum, entry) => sum + computeTargetMinutesForDate(entry),
+    const totalProjectMinutes = summaryData.summaryEntries.reduce(
+      (sum, e) => sum + e.totalTime,
       0,
     );
     const totalDistributed = normalRows.reduce(
       (sum, row) => sum + row.hours,
       0,
     );
-    const remaining = totalTarget - totalDistributed;
+    const remaining = totalProjectMinutes - totalDistributed;
 
     const deltaRows =
       remaining !== 0

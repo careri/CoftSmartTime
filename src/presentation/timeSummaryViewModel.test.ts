@@ -157,11 +157,12 @@ suite("TimeSummaryViewModel", () => {
     assert.strictEqual(vm.getDeltaConfig().Factor, "30");
   });
 
-  test("computeDistribution appends delta rows when projects don't cover all hours", () => {
-    // 1 date at 480/480 normal, only 240 project hours → 240 remaining → delta with EvenDist factor=15
+  test("computeDistribution appends delta rows when project time exceeds distributed", () => {
+    // 1 date workTime=600, normalHours=480 → FillByLargest target=480, takes 480 from project
+    // project has 600 min total → distributed=480 → remaining=600-480=120 → delta rows
     const summary = makeSummaryData(
-      [makeDate("2026-03-03", true, 480, 480)],
-      [makeProject("ProjectA", 240)],
+      [makeDate("2026-03-03", true, 600, 480)],
+      [makeProject("ProjectA", 600)],
     );
     vm.setRange("2026-03-03", "2026-03-03");
     const rows = vm.computeDistribution(summary);
@@ -170,16 +171,17 @@ suite("TimeSummaryViewModel", () => {
     const deltaRows = rows.filter((r) => r.delta);
 
     assert.strictEqual(normalRows.length, 1);
-    assert.strictEqual(normalRows[0].hours, 240);
+    assert.strictEqual(normalRows[0].hours, 480);
     assert.ok(deltaRows.length > 0);
     assert.strictEqual(
       deltaRows.reduce((s, r) => s + r.hours, 0),
-      240,
+      120,
     );
     assert.ok(deltaRows.every((r) => r.project === "Delta"));
   });
 
-  test("no delta rows when projects exactly cover target", () => {
+  test("no delta rows when project time equals distributed", () => {
+    // project=480, normalHours=480, workTime=480 → distributed=480 → remaining=0
     const summary = makeSummaryData(
       [makeDate("2026-03-03", true, 480, 480)],
       [makeProject("ProjectA", 480)],
