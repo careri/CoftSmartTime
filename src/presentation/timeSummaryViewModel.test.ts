@@ -177,7 +177,10 @@ suite("TimeSummaryViewModel", () => {
       deltaRows.reduce((s, r) => s + r.hours, 0),
       120,
     );
-    assert.ok(deltaRows.every((r) => r.project === "Delta"));
+    // Delta rows are assigned to the project with remaining time
+    assert.ok(deltaRows.every((r) => r.project === "ProjectA"));
+    // totalDateHours is recalculated to include delta (480 normal + 120 delta = 600)
+    assert.ok(rows.every((r) => r.totalDateHours === 600));
   });
 
   test("no delta rows when project time equals distributed", () => {

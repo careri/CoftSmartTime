@@ -3,6 +3,7 @@ import {
   DistributionAlgorithm,
   DistributionRow,
   FillByLargestDistributor,
+  assignProjectsToDeltaRows,
 } from "./timeSummaryDistribution";
 import {
   DeltaAlgorithmType,
@@ -90,7 +91,7 @@ export class TimeSummaryViewModel {
         d.date <= this.distributionEndDate,
     );
 
-    const normalRows = this.distributor.compute(
+    const { rows: normalRows, remainingBuckets } = this.distributor.compute(
       filtered,
       summaryData.summaryEntries,
     );
@@ -105,12 +106,30 @@ export class TimeSummaryViewModel {
     );
     const remaining = totalProjectMinutes - totalDistributed;
 
-    const deltaRows =
+    const rawDeltaRows =
       remaining !== 0
         ? this.deltaDistributor.compute(filtered, remaining, this.deltaConfig)
         : [];
 
-    return [...normalRows, ...deltaRows];
+    const assignedDeltaRows = assignProjectsToDeltaRows(
+      rawDeltaRows,
+      remainingBuckets,
+    );
+
+    const allRows = [...normalRows, ...assignedDeltaRows].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
+
+    // Recalculate totalDateHours per date to include delta contributions
+    const dateHoursMap = new Map<string, number>();
+    for (const row of allRows) {
+      dateHoursMap.set(row.date, (dateHoursMap.get(row.date) ?? 0) + row.hours);
+    }
+    for (const row of allRows) {
+      row.totalDateHours = dateHoursMap.get(row.date) ?? row.totalDateHours;
+    }
+
+    return allRows;
   }
 
   private resetDeltaConfig(): void {
