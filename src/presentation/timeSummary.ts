@@ -59,7 +59,7 @@ export class TimeSummaryProvider {
     this.openTimeReportCallback = openTimeReportCallback;
     this.timeReportRepository = new TimeReportRepository(config);
     this.htmlBuilder = new TimeSummaryHtmlBuilder();
-    this.viewModel = new TimeSummaryViewModel();
+    this.viewModel = new TimeSummaryViewModel(config.viewGroupByMinutes);
     this.startDate = new Date();
     this.endDate = new Date();
     this.setCurrentMonth();
@@ -216,6 +216,14 @@ export class TimeSummaryProvider {
         break;
       case "updateDistributionEnd":
         this.viewModel.setRange(this.viewModel.getStartDate(), message.date);
+        await this.updateView();
+        break;
+      case "updateDeltaAlgorithm":
+        this.viewModel.setDeltaAlgorithm(message.algorithm);
+        await this.updateView();
+        break;
+      case "updateDeltaConfig":
+        this.viewModel.updateDeltaConfig(message.key, message.value);
         await this.updateView();
         break;
     }
@@ -390,6 +398,8 @@ export class TimeSummaryProvider {
       includedDates,
       this.viewModel.getStartDate(),
       this.viewModel.getEndDate(),
+      this.viewModel.getDeltaAlgorithmType(),
+      this.viewModel.getDeltaConfig(),
     );
   }
 }

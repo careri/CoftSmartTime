@@ -1,5 +1,6 @@
 import { PeriodType, SummaryData } from "./timeSummary";
 import { DistributionRow } from "./timeSummaryDistribution";
+import { DeltaAlgorithmType } from "./timeSummaryDeltaDistribution";
 
 export class TimeSummaryHtmlBuilder {
   build(
@@ -11,6 +12,8 @@ export class TimeSummaryHtmlBuilder {
     includedDates: string[],
     distributionStartDate: string,
     distributionEndDate: string,
+    deltaAlgorithmType: DeltaAlgorithmType,
+    deltaConfig: Record<string, string>,
   ): string {
     const startStr = startDate.toLocaleDateString();
     const endStr = endDate.toLocaleDateString();
@@ -52,8 +55,26 @@ export class TimeSummaryHtmlBuilder {
       .map((row) => {
         const hoursStr = this.formatMinutes(row.hours);
         const totalStr = this.formatMinutes(row.totalDateHours);
-        return `<tr><td>${row.date}</td><td>${this.escapeHtml(row.project)}</td><td>${hoursStr}</td><td>${totalStr}</td></tr>`;
+        const deltaCell = row.delta ? "&#10003;" : "";
+        return `<tr><td>${row.date}</td><td>${this.escapeHtml(row.project)}</td><td>${hoursStr}</td><td>${totalStr}</td><td>${deltaCell}</td></tr>`;
       })
+      .join("");
+
+    const deltaAlgorithmOptions = [
+      { value: "EvenDistribution", label: "Even Distribution" },
+      { value: "FillLastDays", label: "Fill Last Days" },
+    ]
+      .map(
+        ({ value, label }) =>
+          `<option value="${value}"${value === deltaAlgorithmType ? " selected" : ""}>${label}</option>`,
+      )
+      .join("");
+
+    const deltaConfigRows = Object.entries(deltaConfig)
+      .map(
+        ([key, value]) =>
+          `<tr><td>${this.escapeHtml(key)}</td><td><input type="text" class="delta-config-input" data-key="${this.escapeHtml(key)}" value="${this.escapeHtml(value)}"></td></tr>`,
+      )
       .join("");
 
     const warningBanner = summary.configWarning
@@ -73,6 +94,7 @@ export class TimeSummaryHtmlBuilder {
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
         th { background-color: var(--vscode-editor-lineHighlightBackground); }
         .normal-hours-input { width: 60px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
+        .delta-config-input { width: 120px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
         .footer-row td { border-top: 2px solid var(--vscode-panel-border); font-weight: bold; }
     </style>
 </head>
@@ -109,9 +131,18 @@ export class TimeSummaryHtmlBuilder {
         <label>End: <select id="distEnd">${endOptions}</select></label>
         &nbsp;
         <label>Algorithm: <select id="distAlgorithm"><option value="FillByLargest" selected>Fill By Largest</option></select></label>
+        &nbsp;
+        <label>Delta: <select id="deltaAlgorithmSelect">${deltaAlgorithmOptions}</select></label>
+        <button id="deltaConfigGear" title="Configure delta algorithm">&#9881;</button>
+    </div>
+    <div id="deltaConfigPanel" style="display:none; margin-top:10px; border:1px solid var(--vscode-panel-border); padding:10px;">
+        <strong>Delta Algorithm Configuration</strong>
+        <table>
+            <tbody>${deltaConfigRows}</tbody>
+        </table>
     </div>
     <table id="distributionTable">
-        <thead><tr><th>Date</th><th>Project</th><th>Hours</th><th>Total Date Hours</th></tr></thead>
+        <thead><tr><th>Date</th><th>Project</th><th>Hours</th><th>Total Date Hours</th><th>Delta</th></tr></thead>
         <tbody>${distributionTableRows}</tbody>
     </table>
     <script>
@@ -167,6 +198,18 @@ export class TimeSummaryHtmlBuilder {
         });
         document.getElementById('distEnd').addEventListener('change', (e) => {
             vscode.postMessage({ command: 'updateDistributionEnd', date: e.target.value });
+        });
+        document.getElementById('deltaAlgorithmSelect').addEventListener('change', (e) => {
+            vscode.postMessage({ command: 'updateDeltaAlgorithm', algorithm: e.target.value });
+        });
+        document.getElementById('deltaConfigGear').addEventListener('click', () => {
+            const panel = document.getElementById('deltaConfigPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+        document.querySelectorAll('.delta-config-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                vscode.postMessage({ command: 'updateDeltaConfig', key: e.target.dataset.key, value: e.target.value });
+            });
         });
     </script>
 </body>

@@ -1,15 +1,33 @@
 import { SummaryData } from "./timeSummary";
 import {
+  computeTargetMinutesForDate,
   DistributionAlgorithm,
   DistributionRow,
   FillByLargestDistributor,
 } from "./timeSummaryDistribution";
+import {
+  DeltaAlgorithmType,
+  DeltaDistributor,
+  EvenDistributionDeltaDistributor,
+} from "./timeSummaryDeltaDistribution";
+import { FillLastDaysDeltaDistributor } from "./timeSummaryFillLastDaysDeltaDistribution";
 
 export class TimeSummaryViewModel {
   private distributionStartDate: string = "";
   private distributionEndDate: string = "";
   private readonly algorithm: DistributionAlgorithm = "FillByLargest";
   private readonly distributor = new FillByLargestDistributor();
+
+  private deltaAlgorithmType: DeltaAlgorithmType = "EvenDistribution";
+  private deltaConfig: Map<string, string> = new Map();
+  private deltaDistributor: DeltaDistributor;
+
+  constructor(private readonly viewGroupByMinutes: number) {
+    this.deltaDistributor = new EvenDistributionDeltaDistributor(
+      viewGroupByMinutes,
+    );
+    this.resetDeltaConfig();
+  }
 
   resetRange(summaryData: SummaryData): void {
     const included = summaryData.dateEntries.filter((d) => d.include);
@@ -35,6 +53,36 @@ export class TimeSummaryViewModel {
     return this.algorithm;
   }
 
+  setDeltaAlgorithm(type: DeltaAlgorithmType): void {
+    this.deltaAlgorithmType = type;
+    if (type === "EvenDistribution") {
+      this.deltaDistributor = new EvenDistributionDeltaDistributor(
+        this.viewGroupByMinutes,
+      );
+    } else {
+      this.deltaDistributor = new FillLastDaysDeltaDistributor();
+    }
+    this.resetDeltaConfig();
+  }
+
+  updateDeltaConfig(key: string, value: string): void {
+    this.deltaConfig.set(key, value);
+  }
+
+  getDeltaAlgorithmType(): DeltaAlgorithmType {
+    return this.deltaAlgorithmType;
+  }
+
+  getDeltaConfig(): Record<string, string> {
+    const result: Record<string, string> = {
+      ...this.deltaDistributor.defaultConfig,
+    };
+    for (const [k, v] of this.deltaConfig) {
+      result[k] = v;
+    }
+    return result;
+  }
+
   computeDistribution(summaryData: SummaryData): DistributionRow[] {
     const filtered = summaryData.dateEntries.filter(
       (d) =>
@@ -42,6 +90,33 @@ export class TimeSummaryViewModel {
         d.date >= this.distributionStartDate &&
         d.date <= this.distributionEndDate,
     );
-    return this.distributor.compute(filtered, summaryData.summaryEntries);
+
+    const normalRows = this.distributor.compute(
+      filtered,
+      summaryData.summaryEntries,
+    );
+
+    const totalTarget = filtered.reduce(
+      (sum, entry) => sum + computeTargetMinutesForDate(entry),
+      0,
+    );
+    const totalDistributed = normalRows.reduce(
+      (sum, row) => sum + row.hours,
+      0,
+    );
+    const remaining = totalTarget - totalDistributed;
+
+    const deltaRows =
+      remaining !== 0
+        ? this.deltaDistributor.compute(filtered, remaining, this.deltaConfig)
+        : [];
+
+    return [...normalRows, ...deltaRows];
+  }
+
+  private resetDeltaConfig(): void {
+    this.deltaConfig = new Map(
+      Object.entries(this.deltaDistributor.defaultConfig),
+    );
   }
 }

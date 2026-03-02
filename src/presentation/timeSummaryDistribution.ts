@@ -5,6 +5,7 @@ export interface DistributionRow {
   project: string;
   hours: number; // minutes
   totalDateHours: number; // minutes – same for all rows on that date
+  delta: boolean; // true = added by delta logic
 }
 
 export type DistributionAlgorithm = "FillByLargest";
@@ -12,6 +13,15 @@ export type DistributionAlgorithm = "FillByLargest";
 interface ProjectBucket {
   project: string;
   remaining: number; // minutes
+}
+
+export function computeTargetMinutesForDate(entry: DateEntry): number {
+  const delta = entry.workTime - entry.normalHours;
+  if (delta >= 0) {
+    return entry.normalHours;
+  }
+  const distributedDelta = Math.round(delta / 30) * 30;
+  return entry.normalHours + distributedDelta;
 }
 
 export class FillByLargestDistributor {
@@ -46,6 +56,7 @@ export class FillByLargestDistributor {
             project: bucket.project,
             hours: take,
             totalDateHours: entry.normalHours,
+            delta: false,
           });
           bucket.remaining -= take;
           needed -= take;
@@ -61,13 +72,6 @@ export class FillByLargestDistributor {
   }
 
   private computeTargetMinutes(entry: DateEntry): number {
-    const delta = entry.workTime - entry.normalHours;
-
-    if (delta >= 0) {
-      return entry.normalHours;
-    }
-
-    const distributedDelta = Math.round(delta / 30) * 30;
-    return entry.normalHours + distributedDelta;
+    return computeTargetMinutesForDate(entry);
   }
 }

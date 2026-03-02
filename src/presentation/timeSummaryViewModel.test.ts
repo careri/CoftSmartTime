@@ -33,7 +33,7 @@ suite("TimeSummaryViewModel", () => {
   let vm: TimeSummaryViewModel;
 
   setup(() => {
-    vm = new TimeSummaryViewModel();
+    vm = new TimeSummaryViewModel(15);
   });
 
   test("initial state has empty dates", () => {
@@ -126,5 +126,66 @@ suite("TimeSummaryViewModel", () => {
     vm.setRange("2026-03-05", "2026-03-03");
     const rows = vm.computeDistribution(summary);
     assert.strictEqual(rows.length, 0);
+  });
+
+  test("getDeltaAlgorithmType defaults to EvenDistribution", () => {
+    assert.strictEqual(vm.getDeltaAlgorithmType(), "EvenDistribution");
+  });
+
+  test("getDeltaConfig returns defaults for EvenDistribution", () => {
+    const config = vm.getDeltaConfig();
+    assert.strictEqual(config.Factor, "15");
+  });
+
+  test("setDeltaAlgorithm switches to FillLastDays and resets config", () => {
+    vm.updateDeltaConfig("Factor", "30"); // modify EvenDistribution config
+    vm.setDeltaAlgorithm("FillLastDays");
+    assert.strictEqual(vm.getDeltaAlgorithmType(), "FillLastDays");
+    const config = vm.getDeltaConfig();
+    assert.strictEqual(config.NumberOfDays, "1");
+    assert.ok(!("Factor" in config));
+  });
+
+  test("setDeltaAlgorithm back to EvenDistribution resets config to timeslot default", () => {
+    vm.setDeltaAlgorithm("FillLastDays");
+    vm.setDeltaAlgorithm("EvenDistribution");
+    assert.strictEqual(vm.getDeltaConfig().Factor, "15");
+  });
+
+  test("updateDeltaConfig overrides a config key", () => {
+    vm.updateDeltaConfig("Factor", "30");
+    assert.strictEqual(vm.getDeltaConfig().Factor, "30");
+  });
+
+  test("computeDistribution appends delta rows when projects don't cover all hours", () => {
+    // 1 date at 480/480 normal, only 240 project hours → 240 remaining → delta with EvenDist factor=15
+    const summary = makeSummaryData(
+      [makeDate("2026-03-03", true, 480, 480)],
+      [makeProject("ProjectA", 240)],
+    );
+    vm.setRange("2026-03-03", "2026-03-03");
+    const rows = vm.computeDistribution(summary);
+
+    const normalRows = rows.filter((r) => !r.delta);
+    const deltaRows = rows.filter((r) => r.delta);
+
+    assert.strictEqual(normalRows.length, 1);
+    assert.strictEqual(normalRows[0].hours, 240);
+    assert.ok(deltaRows.length > 0);
+    assert.strictEqual(
+      deltaRows.reduce((s, r) => s + r.hours, 0),
+      240,
+    );
+    assert.ok(deltaRows.every((r) => r.project === "Delta"));
+  });
+
+  test("no delta rows when projects exactly cover target", () => {
+    const summary = makeSummaryData(
+      [makeDate("2026-03-03", true, 480, 480)],
+      [makeProject("ProjectA", 480)],
+    );
+    vm.setRange("2026-03-03", "2026-03-03");
+    const rows = vm.computeDistribution(summary);
+    assert.ok(rows.every((r) => !r.delta));
   });
 });
