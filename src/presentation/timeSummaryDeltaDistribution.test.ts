@@ -17,59 +17,51 @@ suite("EvenDistributionDeltaDistributor", () => {
     const dates = [makeDate("2026-03-03"), makeDate("2026-03-04")];
     const rows = dist.compute(dates, 30, makeConfig());
 
+    // One aggregated row per date
     assert.strictEqual(rows.length, 2);
-    assert.strictEqual(rows[0].date, "2026-03-03");
-    assert.strictEqual(rows[0].hours, 15);
-    assert.strictEqual(rows[1].date, "2026-03-04");
-    assert.strictEqual(rows[1].hours, 15);
+    assert.strictEqual(rows.find((r) => r.date === "2026-03-03")?.hours, 15);
+    assert.strictEqual(rows.find((r) => r.date === "2026-03-04")?.hours, 15);
   });
 
-  test("cycles back to first date when one pass is not enough", () => {
+  test("cycles back to first date when one pass is not enough – totals are correct", () => {
     const dist = new EvenDistributionDeltaDistributor(15);
     const dates = [makeDate("2026-03-03"), makeDate("2026-03-04")];
-    // 45 / 15 = 3 chunks: d1 d2 d1
+    // 45 / 15 = 3 chunks: d1 d2 d1 → d1 total 30, d2 total 15, one row per date
     const rows = dist.compute(dates, 45, makeConfig());
 
-    const d1 = rows.filter((r) => r.date === "2026-03-03");
-    const d2 = rows.filter((r) => r.date === "2026-03-04");
-    assert.strictEqual(d1.length, 2); // two rows on date 1
-    assert.strictEqual(d2.length, 1);
-    assert.strictEqual(
-      d1.reduce((s, r) => s + r.hours, 0),
-      30,
-    );
-    assert.strictEqual(d2[0].hours, 15);
+    assert.strictEqual(rows.length, 2);
+    assert.strictEqual(rows.find((r) => r.date === "2026-03-03")?.hours, 30);
+    assert.strictEqual(rows.find((r) => r.date === "2026-03-04")?.hours, 15);
   });
 
-  test("last chunk smaller than factor is still distributed", () => {
+  test("last chunk smaller than factor is aggregated into one row per date", () => {
     const dist = new EvenDistributionDeltaDistributor(15);
     const dates = [makeDate("2026-03-03")];
-    // 20 / 15 = 1 full + 1 remainder of 5
+    // 20 min, factor 15 → one full chunk + 5 min remainder, aggregated: 20 min
     const rows = dist.compute(dates, 20, makeConfig());
 
-    assert.strictEqual(rows.length, 2);
-    assert.strictEqual(rows[0].hours, 15);
-    assert.strictEqual(rows[1].hours, 5);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].hours, 20);
   });
 
   test("respects custom Factor from config", () => {
     const dist = new EvenDistributionDeltaDistributor(15);
     const dates = [makeDate("2026-03-03")];
+    // 60 min, factor 30 → 2 chunks, both on same date → aggregated to 1 row of 60
     const rows = dist.compute(dates, 60, makeConfig({ Factor: "30" }));
 
-    assert.strictEqual(rows.length, 2);
-    assert.strictEqual(rows[0].hours, 30);
-    assert.strictEqual(rows[1].hours, 30);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].hours, 60);
   });
 
   test("negative remaining produces negative hours", () => {
     const dist = new EvenDistributionDeltaDistributor(15);
     const dates = [makeDate("2026-03-03")];
+    // -30 min, factor 15 → 2 chunks aggregated: 1 row of -30
     const rows = dist.compute(dates, -30, makeConfig());
 
-    assert.strictEqual(rows.length, 2);
-    assert.strictEqual(rows[0].hours, -15);
-    assert.strictEqual(rows[1].hours, -15);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].hours, -30);
   });
 
   test("all rows have delta: true and project Delta", () => {

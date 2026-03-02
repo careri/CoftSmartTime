@@ -1,5 +1,8 @@
 import { DateEntry } from "./timeSummary";
-import { DistributionRow } from "./timeSummaryDistribution";
+import {
+  DistributionRow,
+  FillByLargestDistributor,
+} from "./timeSummaryDistribution";
 
 export type DeltaAlgorithmType = "EvenDistribution" | "FillLastDays";
 
@@ -33,26 +36,34 @@ export class EvenDistributionDeltaDistributor implements DeltaDistributor {
     const factorStr = config.get("Factor") ?? this.defaultConfig.Factor;
     const factor = Math.max(1, parseInt(factorStr, 10));
     const sign = remainingDeltaMinutes >= 0 ? 1 : -1;
-    let abs = Math.abs(remainingDeltaMinutes);
-    const rows: DistributionRow[] = [];
+    const abs = Math.abs(remainingDeltaMinutes);
 
-    while (abs > 0) {
-      for (const entry of dateEntries) {
-        if (abs <= 0) {
-          break;
-        }
-        const take = Math.min(abs, factor);
-        rows.push({
-          date: entry.date,
-          project: "Delta",
-          hours: take * sign,
-          totalDateHours: entry.normalHours,
-          delta: true,
-        });
-        abs -= take;
-      }
+    // Build a cycling list of synthetic date entries, one slot (Factor min) each.
+    // FillByLargestDistributor then fills them from the delta "project" in order.
+    const passes = Math.ceil(abs / factor);
+    const syntheticDates: DateEntry[] = [];
+    for (let i = 0; i < passes; i++) {
+      const source = dateEntries[i % dateEntries.length];
+      syntheticDates.push({ ...source, normalHours: factor, workTime: factor });
     }
 
-    return rows;
+    const { rows } = new FillByLargestDistributor().compute(syntheticDates, [
+      { project: "Delta", totalTime: abs },
+    ]);
+
+    // Aggregate minutes per date into one row each
+    const byDate = new Map<string, number>();
+    for (const row of rows) {
+      byDate.set(row.date, (byDate.get(row.date) ?? 0) + row.hours);
+    }
+
+    return [...byDate.entries()].map(([date, minutes]) => ({
+      date,
+      project: "Delta",
+      hours: minutes * sign,
+      totalDateHours:
+        dateEntries.find((e) => e.date === date)?.normalHours ?? 0,
+      delta: true,
+    }));
   }
 }
