@@ -21,7 +21,8 @@ export class TimeSummaryHtmlBuilder {
     const startStr = startDate.toLocaleDateString();
     const endStr = endDate.toLocaleDateString();
 
-    const distributionSummary = computeProjectDistributionSummary(distributionRows);
+    const distributionSummary =
+      computeProjectDistributionSummary(distributionRows);
 
     const summaryRows = summary.summaryEntries
       .map((entry) => {
@@ -123,7 +124,7 @@ export class TimeSummaryHtmlBuilder {
         <button id="back">←</button>
         <button id="forward">→</button>
         <button id="exportHtml">Export HTML</button>
-        <button id="copyHtml">Copy HTML</button>
+        <button id="exportMarkdown">Export Markdown</button>
     </div>
     <h2>Summary by Project</h2>
     <table id="summaryTable">
@@ -198,7 +199,7 @@ export class TimeSummaryHtmlBuilder {
         document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
         document.getElementById('forward').addEventListener('click', () => vscode.postMessage({ command: 'forward' }));
         document.getElementById('exportHtml').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryHtml' }));
-        document.getElementById('copyHtml').addEventListener('click', () => vscode.postMessage({ command: 'copySummaryHtml' }));
+        document.getElementById('exportMarkdown').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryMarkdown' }));
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 vscode.postMessage({ command: 'toggleInclude', date: e.target.dataset.date, include: e.target.checked });

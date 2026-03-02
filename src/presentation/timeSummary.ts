@@ -11,6 +11,7 @@ import { TimeReportRepository } from "../storage/timeReportRepository";
 import { TimeReport } from "../storage/batchRepository";
 import { Logger } from "../utils/logger";
 import { TimeSummaryHtmlBuilder } from "./timeSummaryHtmlBuilder";
+import { TimeSummaryMarkdownBuilder } from "./timeSummaryMarkdownBuilder";
 import { TimeSummaryViewModel } from "./timeSummaryViewModel";
 
 export type PeriodType = "week" | "month";
@@ -210,8 +211,8 @@ export class TimeSummaryProvider {
       case "exportSummaryHtml":
         await this.exportHtml();
         break;
-      case "copySummaryHtml":
-        await this.copyHtml();
+      case "exportSummaryMarkdown":
+        await this.exportMarkdown();
         break;
       case "updateDistributionStart":
         this.viewModel.setRange(message.date, this.viewModel.getEndDate());
@@ -236,35 +237,73 @@ export class TimeSummaryProvider {
     if (!this.summaryData) {
       return;
     }
+    const html = this.getHtmlContent(this.summaryData);
+    await this.chooseExportTarget(
+      html,
+      "coft-summary.html",
+      { HTML: ["html"] },
+      "Export Summary HTML",
+    );
+  }
+
+  private async exportMarkdown(): Promise<void> {
+    if (!this.summaryData) {
+      return;
+    }
+    const distributionRows = this.viewModel.computeDistribution(
+      this.summaryData,
+    );
+    const md = new TimeSummaryMarkdownBuilder().build(
+      this.summaryData,
+      distributionRows,
+    );
+    await this.chooseExportTarget(
+      md,
+      "coft-summary.md",
+      { Markdown: ["md"] },
+      "Export Summary Markdown",
+    );
+  }
+
+  private async chooseExportTarget(
+    content: string,
+    defaultFileName: string,
+    filters: Record<string, string[]>,
+    title: string,
+  ): Promise<void> {
+    const choice = await vscode.window.showQuickPick(
+      ["Copy to clipboard", "Save to file"],
+      { title },
+    );
+    if (!choice) {
+      return;
+    }
+    if (choice === "Copy to clipboard") {
+      await vscode.env.clipboard.writeText(content);
+      await vscode.window.showInformationMessage(
+        `${title}: copied to clipboard.`,
+      );
+      return;
+    }
     const downloadsDir = path.join(os.homedir(), "Downloads");
     const defaultUri = vscode.Uri.file(
-      path.join(downloadsDir, "coft-summary.html"),
+      path.join(downloadsDir, defaultFileName),
     );
     const uri = await vscode.window.showSaveDialog({
       defaultUri,
-      filters: { HTML: ["html"] },
-      title: "Export Summary HTML",
+      filters,
+      title,
     });
     if (!uri) {
       return;
     }
     try {
-      const html = this.getHtmlContent(this.summaryData);
-      await fs.promises.writeFile(uri.fsPath, html, "utf8");
+      await fs.promises.writeFile(uri.fsPath, content, "utf8");
     } catch (err) {
       await vscode.window.showErrorMessage(
-        `Failed to export summary HTML: ${err instanceof Error ? err.message : String(err)}`,
+        `${title} failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  }
-
-  private async copyHtml(): Promise<void> {
-    if (!this.summaryData) {
-      return;
-    }
-    const html = this.getHtmlContent(this.summaryData);
-    await vscode.env.clipboard.writeText(html);
-    await vscode.window.showInformationMessage("Summary HTML copied to clipboard.");
   }
 
   private recomputeSummary(): void {
