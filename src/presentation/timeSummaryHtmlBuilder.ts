@@ -103,7 +103,9 @@ export class TimeSummaryHtmlBuilder {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>COFT Time Summary</title>
     <style>
-        body { font-family: var(--vscode-font-family); padding: 20px; }
+        body { font-family: var(--vscode-font-family); padding: 20px; padding-top: 52px; }
+        .toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 8px 20px; background-color: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-panel-border); }
+        .toolbar h1 { margin: 0; font-size: 1em; white-space: nowrap; margin-right: 12px; }
         button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; cursor: pointer; margin-right: 4px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
@@ -114,9 +116,8 @@ export class TimeSummaryHtmlBuilder {
     </style>
 </head>
 <body>
-    <h1>Time Summary: ${startStr} - ${endStr}</h1>
-    ${warningBanner}
-    <div>
+    <div class="toolbar">
+        <h1>Time Summary: ${startStr} - ${endStr}</h1>
         <select id="periodSelect">
             <option value="week"${currentPeriod === "week" ? " selected" : ""}>Week</option>
             <option value="month"${currentPeriod === "month" ? " selected" : ""}>Month</option>
@@ -126,6 +127,7 @@ export class TimeSummaryHtmlBuilder {
         <button id="exportHtml">Export HTML</button>
         <button id="exportMarkdown">Export Markdown</button>
     </div>
+    ${warningBanner}
     <h2>Summary by Project</h2>
     <table id="summaryTable">
         <thead><tr><th>Project</th><th>Normal Time</th><th>Delta Time</th><th>Time</th></tr></thead>

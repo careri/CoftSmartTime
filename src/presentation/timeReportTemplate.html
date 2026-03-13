@@ -10,12 +10,20 @@
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
             padding: 20px;
+            padding-top: 52px;
         }
         .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            padding: 8px 20px;
+            background-color: var(--vscode-editor-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
         }
         .navigation {
             display: flex;
@@ -284,6 +292,7 @@
         let currentEntries = {{entriesJson}};
         let currentProjects = {{projectsJson}};
         const allProjectNames = {{projectNamesJson}};
+        const branchTaskUrl = {{branchTaskUrl}};
         let activeComboIndex = -1;
 
         document.getElementById('prevDay').addEventListener('click', () => {
@@ -394,7 +403,9 @@
                     const hours = Math.floor(timeMinutes / 60);
                     const minutes = timeMinutes % 60;
                     const timeStr = hours > 0 ? hours + 'h ' + minutes + 'm' : minutes + 'm';
-                    const branchCell = '<a href="#" title="Open task">' + escapeHtml(entry.branch) + '</a>';
+                    const branchCell = branchTaskUrl
+                        ? '<a href="' + escapeHtml(branchTaskUrl.replace('{branch}', entry.branch)) + '" title="Open task">' + escapeHtml(entry.branch) + '</a>'
+                        : escapeHtml(entry.branch);
                     const projectCell = '<div class="combobox-wrapper"><input type="text" class="overview-project-input" data-branch="' + escapeHtml(entry.branch) + '" data-directory="' + escapeHtml(entry.directory) + '" value="' + escapeHtml(entry.project) + '" placeholder="Select or type project..." autocomplete="off" /><div class="combobox-dropdown"></div></div>';
                     return '<tr class="project-group-entry"><td>' + branchCell + '</td><td>' + escapeHtml(entry.directory) + '</td><td>' + projectCell + '</td><td>' + escapeHtml(timeStr) + '</td></tr>';
                 }).join('');

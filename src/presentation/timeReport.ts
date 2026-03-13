@@ -879,6 +879,7 @@ export class TimeReportProvider {
       projectsJson: JSON.stringify(projects),
       overviewJson: JSON.stringify(overview),
       projectNamesJson: JSON.stringify(Array.from(allProjectNames)),
+      branchTaskUrl: JSON.stringify(this.config.branchTaskUrl || ""),
       exportButton: this.logger.isDebugEnabled()
         ? '<button id="exportHtml">Export HTML</button>'
         : "",
