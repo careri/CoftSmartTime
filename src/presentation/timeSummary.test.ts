@@ -371,6 +371,163 @@ suite("TimeSummaryProvider Navigation Test Suite", () => {
     assert.strictEqual(startDate.getDate(), 1);
     assert.strictEqual(startDate.getMonth(), new Date().getMonth());
   });
+
+  // ── custom period ─────────────────────────────────────────────────────────
+
+  test("handleMessage 'setPeriod' custom: sets currentPeriod without resetting dates", async () => {
+    const provider = makeProvider();
+    (provider as any).startDate = new Date(2026, 2, 1); // Mar 1
+    (provider as any).endDate = new Date(2026, 2, 15); // Mar 15
+    await (provider as any).handleMessage({
+      command: "setPeriod",
+      period: "custom",
+    });
+    assert.strictEqual((provider as any).currentPeriod, "custom");
+    // Dates preserved
+    const start: Date = (provider as any).startDate;
+    assert.strictEqual(start.getFullYear(), 2026);
+    assert.strictEqual(start.getMonth(), 2);
+    assert.strictEqual(start.getDate(), 1);
+  });
+
+  test("handleMessage 'setPeriod' custom: initialises customStartDate and customEndDate as ISO strings", async () => {
+    const provider = makeProvider();
+    (provider as any).startDate = new Date(2026, 2, 1);
+    (provider as any).endDate = new Date(2026, 2, 15);
+    await (provider as any).handleMessage({
+      command: "setPeriod",
+      period: "custom",
+    });
+    assert.strictEqual((provider as any).customStartDate, "2026-03-01");
+    assert.strictEqual((provider as any).customEndDate, "2026-03-15");
+  });
+
+  test("handleMessage 'setPeriod' custom: does NOT clear cache", async () => {
+    const provider = makeProvider();
+    const cached = [{ date: "2026-03-01", entries: [] }];
+    (provider as any).reports = cached;
+    (provider as any).summaryData = { summaryEntries: [], dateEntries: [] };
+    await (provider as any).handleMessage({
+      command: "setPeriod",
+      period: "custom",
+    });
+    assert.deepStrictEqual((provider as any).reports, cached);
+    assert.notStrictEqual((provider as any).summaryData, null);
+  });
+
+  test("handleMessage 'setCustomRange': parses ISO dates into startDate/endDate", async () => {
+    const provider = makeProvider();
+    await (provider as any).handleMessage({
+      command: "setCustomRange",
+      start: "2026-01-05",
+      end: "2026-01-20",
+    });
+    const start: Date = (provider as any).startDate;
+    const end: Date = (provider as any).endDate;
+    assert.strictEqual(start.getFullYear(), 2026);
+    assert.strictEqual(start.getMonth(), 0);
+    assert.strictEqual(start.getDate(), 5);
+    assert.strictEqual(end.getFullYear(), 2026);
+    assert.strictEqual(end.getMonth(), 0);
+    assert.strictEqual(end.getDate(), 20);
+  });
+
+  test("handleMessage 'setCustomRange': updates customStartDate and customEndDate fields", async () => {
+    const provider = makeProvider();
+    await (provider as any).handleMessage({
+      command: "setCustomRange",
+      start: "2026-01-05",
+      end: "2026-01-20",
+    });
+    assert.strictEqual((provider as any).customStartDate, "2026-01-05");
+    assert.strictEqual((provider as any).customEndDate, "2026-01-20");
+  });
+
+  test("handleMessage 'setCustomRange': clears cached reports and summaryData", async () => {
+    const provider = makeProvider();
+    (provider as any).reports = [{ date: "2026-01-01", entries: [] }];
+    (provider as any).summaryData = { summaryEntries: [], dateEntries: [] };
+    await (provider as any).handleMessage({
+      command: "setCustomRange",
+      start: "2026-02-01",
+      end: "2026-02-28",
+    });
+    assert.deepStrictEqual((provider as any).reports, []);
+    assert.strictEqual((provider as any).summaryData, null);
+  });
+
+  test("handleMessage 'refresh': clears cached reports and summaryData", async () => {
+    const provider = makeProvider();
+    (provider as any).reports = [{ date: "2026-03-01", entries: [] }];
+    (provider as any).summaryData = { summaryEntries: [], dateEntries: [] };
+    await (provider as any).handleMessage({ command: "refresh" });
+    assert.deepStrictEqual((provider as any).reports, []);
+    assert.strictEqual((provider as any).summaryData, null);
+  });
+
+  test("handleMessage 'forward' in custom mode: does not change dates", async () => {
+    const provider = makeProvider();
+    (provider as any).currentPeriod = "custom";
+    (provider as any).startDate = new Date(2026, 2, 1);
+    (provider as any).endDate = new Date(2026, 2, 15);
+    await (provider as any).handleMessage({ command: "forward" });
+    const start: Date = (provider as any).startDate;
+    const end: Date = (provider as any).endDate;
+    assert.strictEqual(start.getDate(), 1);
+    assert.strictEqual(end.getDate(), 15);
+  });
+
+  test("handleMessage 'back' in custom mode: does not change dates", async () => {
+    const provider = makeProvider();
+    (provider as any).currentPeriod = "custom";
+    (provider as any).startDate = new Date(2026, 2, 1);
+    (provider as any).endDate = new Date(2026, 2, 15);
+    await (provider as any).handleMessage({ command: "back" });
+    const start: Date = (provider as any).startDate;
+    const end: Date = (provider as any).endDate;
+    assert.strictEqual(start.getDate(), 1);
+    assert.strictEqual(end.getDate(), 15);
+  });
+
+  // ── dateToISO ─────────────────────────────────────────────────────────────
+
+  test("dateToISO: formats date as YYYY-MM-DD with zero-padded month and day", () => {
+    const provider = makeProvider();
+    const result = (provider as any).dateToISO(new Date(2026, 0, 5)); // Jan 5
+    assert.strictEqual(result, "2026-01-05");
+  });
+
+  test("dateToISO: handles double-digit month and day", () => {
+    const provider = makeProvider();
+    const result = (provider as any).dateToISO(new Date(2026, 11, 31)); // Dec 31
+    assert.strictEqual(result, "2026-12-31");
+  });
+
+  // ── dayOfWeek locale ──────────────────────────────────────────────────────
+
+  test("computeSummary: dayOfWeek is in English ('Mon' not locale-specific)", () => {
+    const provider = makeProvider();
+    const reports: TimeReport[] = [
+      {
+        date: "2026-03-02", // Monday
+        entries: [
+          {
+            key: "09:00",
+            branch: "main",
+            directory: "/p",
+            files: [],
+            fileDetails: [],
+            comment: "",
+            project: "P",
+            assignedBranch: "",
+          },
+        ],
+      },
+    ];
+    const summary = (provider as any).computeSummary(reports);
+    const entry = summary.dateEntries.find((d: any) => d.date === "2026-03-02");
+    assert.strictEqual(entry.dayOfWeek, "Mon");
+  });
 });
 
 suite("TimeSummaryProvider Working Hours Test Suite", () => {

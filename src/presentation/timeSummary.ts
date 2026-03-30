@@ -14,7 +14,7 @@ import { TimeSummaryHtmlBuilder } from "./timeSummaryHtmlBuilder";
 import { TimeSummaryMarkdownBuilder } from "./timeSummaryMarkdownBuilder";
 import { TimeSummaryViewModel } from "./timeSummaryViewModel";
 
-export type PeriodType = "week" | "month";
+export type PeriodType = "week" | "month" | "custom";
 
 export interface SummaryEntry {
   project: string;
@@ -43,6 +43,8 @@ export class TimeSummaryProvider {
   private startDate: Date;
   private endDate: Date;
   private currentPeriod: PeriodType = "month";
+  private customStartDate: string = "";
+  private customEndDate: string = "";
   private panel: vscode.WebviewPanel | null = null;
   private timeReportRepository: TimeReportRepository;
   private summaryData: SummaryData | null = null;
@@ -83,6 +85,10 @@ export class TimeSummaryProvider {
     const now = new Date();
     this.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     this.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  private dateToISO(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
   private moveForward(unit: "week" | "month"): void {
@@ -150,24 +156,53 @@ export class TimeSummaryProvider {
         this.currentPeriod = message.period as PeriodType;
         if (this.currentPeriod === "week") {
           this.setCurrentWeek();
-        } else {
+          this.reports = [];
+          this.summaryData = null;
+        } else if (this.currentPeriod === "month") {
           this.setCurrentMonth();
+          this.reports = [];
+          this.summaryData = null;
+        } else {
+          // custom: initialise inputs from current dates, preserve cache
+          this.customStartDate = this.dateToISO(this.startDate);
+          this.customEndDate = this.dateToISO(this.endDate);
         }
+        await this.updateView();
+        break;
+      case "setCustomRange": {
+        const [syr, smo, sdy] = (message.start as string)
+          .split("-")
+          .map(Number);
+        const [eyr, emo, edy] = (message.end as string).split("-").map(Number);
+        this.startDate = new Date(syr, smo - 1, sdy);
+        this.endDate = new Date(eyr, emo - 1, edy);
+        this.customStartDate = message.start as string;
+        this.customEndDate = message.end as string;
+        this.reports = [];
+        this.summaryData = null;
+        await this.updateView();
+        break;
+      }
+      case "refresh":
         this.reports = [];
         this.summaryData = null;
         await this.updateView();
         break;
       case "forward":
-        this.moveForward(this.currentPeriod);
-        this.reports = [];
-        this.summaryData = null;
-        await this.updateView();
+        if (this.currentPeriod !== "custom") {
+          this.moveForward(this.currentPeriod);
+          this.reports = [];
+          this.summaryData = null;
+          await this.updateView();
+        }
         break;
       case "back":
-        this.moveBack(this.currentPeriod);
-        this.reports = [];
-        this.summaryData = null;
-        await this.updateView();
+        if (this.currentPeriod !== "custom") {
+          this.moveBack(this.currentPeriod);
+          this.reports = [];
+          this.summaryData = null;
+          await this.updateView();
+        }
         break;
       case "toggleInclude":
         if (this.summaryData) {
@@ -392,7 +427,7 @@ export class TimeSummaryProvider {
       const date = report.date;
       const isWeekend = localDate.getDay() === 0 || localDate.getDay() === 6;
       const totalSlots = report.entries.length;
-      const dayOfWeek = localDate.toLocaleDateString(undefined, {
+      const dayOfWeek = localDate.toLocaleDateString("en-US", {
         weekday: "short",
       });
       const normalHours = resolveWorkingHours(this.config, localDate);
@@ -440,6 +475,14 @@ export class TimeSummaryProvider {
     const includedDates = summary.dateEntries
       .filter((d) => d.include)
       .map((d) => d.date);
+    const customStart =
+      this.currentPeriod === "custom"
+        ? this.customStartDate
+        : this.dateToISO(this.startDate);
+    const customEnd =
+      this.currentPeriod === "custom"
+        ? this.customEndDate
+        : this.dateToISO(this.endDate);
     return this.htmlBuilder.build(
       summary,
       this.currentPeriod,
@@ -451,6 +494,8 @@ export class TimeSummaryProvider {
       this.viewModel.getEndDate(),
       this.viewModel.getDeltaAlgorithmType(),
       this.viewModel.getDeltaConfig(),
+      customStart,
+      customEnd,
     );
   }
 }

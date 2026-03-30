@@ -17,6 +17,8 @@ export class TimeSummaryHtmlBuilder {
     distributionEndDate: string,
     deltaAlgorithmType: DeltaAlgorithmType,
     deltaConfig: Record<string, string>,
+    customStartDate: string,
+    customEndDate: string,
   ): string {
     const startStr = startDate.toLocaleDateString();
     const endStr = endDate.toLocaleDateString();
@@ -96,6 +98,12 @@ export class TimeSummaryHtmlBuilder {
       ? `<div id="configWarning" style="background:#856404;color:#fff3cd;border:1px solid #856404;padding:10px 16px;margin-bottom:12px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;"><span>&#9888; <strong>coft.smarttime.working.hours</strong> is not configured. Defaulting to 8 hours/weekday.</span><button onclick="document.getElementById('configWarning').style.display='none'" style="background:transparent;color:#fff3cd;border:1px solid #fff3cd;padding:2px 8px;cursor:pointer;border-radius:3px;">&#x2715;</button></div>`
       : "";
 
+    const isCustom = currentPeriod === "custom";
+    const navDisabled = isCustom ? " disabled" : "";
+    const customDisplay = isCustom ? "contents" : "none";
+    const safeCustomStart = this.escapeHtml(customStartDate);
+    const safeCustomEnd = this.escapeHtml(customEndDate);
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -107,12 +115,14 @@ export class TimeSummaryHtmlBuilder {
         .toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 8px 20px; background-color: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-panel-border); }
         .toolbar h1 { margin: 0; font-size: 1em; white-space: nowrap; margin-right: 12px; }
         button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; cursor: pointer; margin-right: 4px; }
+        button:disabled { opacity: 0.4; cursor: default; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--vscode-panel-border); }
         th { background-color: var(--vscode-editor-lineHighlightBackground); }
         .normal-hours-input { width: 60px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
         .delta-config-input { width: 120px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
         .footer-row td { border-top: 2px solid var(--vscode-panel-border); font-weight: bold; }
+        .custom-date-input { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); padding: 2px 4px; }
     </style>
 </head>
 <body>
@@ -121,9 +131,15 @@ export class TimeSummaryHtmlBuilder {
         <select id="periodSelect">
             <option value="week"${currentPeriod === "week" ? " selected" : ""}>Week</option>
             <option value="month"${currentPeriod === "month" ? " selected" : ""}>Month</option>
+            <option value="custom"${currentPeriod === "custom" ? " selected" : ""}>Custom</option>
         </select>
-        <button id="back">←</button>
-        <button id="forward">→</button>
+        <button id="back"${navDisabled}>&#8592;</button>
+        <button id="forward"${navDisabled}>&#8594;</button>
+        <span style="display:${customDisplay}">
+            <label>From: <input type="date" id="customStart" class="custom-date-input" value="${safeCustomStart}"></label>
+            <label>To: <input type="date" id="customEnd" class="custom-date-input" value="${safeCustomEnd}"></label>
+        </span>
+        <button id="refreshBtn">Refresh</button>
         <button id="exportHtml">Export HTML</button>
         <button id="exportMarkdown">Export Markdown</button>
     </div>
@@ -198,8 +214,21 @@ export class TimeSummaryHtmlBuilder {
             vscode.postMessage({ command: 'openTimeReport', date: date });
         }
         document.getElementById('periodSelect').addEventListener('change', (e) => vscode.postMessage({ command: 'setPeriod', period: e.target.value }));
-        document.getElementById('back').addEventListener('click', () => vscode.postMessage({ command: 'back' }));
-        document.getElementById('forward').addEventListener('click', () => vscode.postMessage({ command: 'forward' }));
+        document.getElementById('back').addEventListener('click', () => { if (!document.getElementById('back').disabled) vscode.postMessage({ command: 'back' }); });
+        document.getElementById('forward').addEventListener('click', () => { if (!document.getElementById('forward').disabled) vscode.postMessage({ command: 'forward' }); });
+        document.getElementById('refreshBtn').addEventListener('click', () => vscode.postMessage({ command: 'refresh' }));
+        const customStartEl = document.getElementById('customStart');
+        const customEndEl = document.getElementById('customEnd');
+        if (customStartEl) {
+            customStartEl.addEventListener('change', (e) => {
+                vscode.postMessage({ command: 'setCustomRange', start: e.target.value, end: customEndEl ? customEndEl.value : '' });
+            });
+        }
+        if (customEndEl) {
+            customEndEl.addEventListener('change', (e) => {
+                vscode.postMessage({ command: 'setCustomRange', start: customStartEl ? customStartEl.value : '', end: e.target.value });
+            });
+        }
         document.getElementById('exportHtml').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryHtml' }));
         document.getElementById('exportMarkdown').addEventListener('click', () => vscode.postMessage({ command: 'exportSummaryMarkdown' }));
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
