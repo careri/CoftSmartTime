@@ -94,24 +94,24 @@ suite("FillByLargestDistributor", () => {
     assert.strictEqual(rows[0].hours, 480);
   });
 
-  test("delta < 0: target is reduced by nearest 0.5h step", () => {
-    // workTime 420, normalHours 480 → delta = -60 → distributedDelta = -60 → target = 420
+  test("delta < 0: target still fills to normalHours", () => {
+    // workTime 420, normalHours 480 → target is always normalHours (480)
     const dates = [makeDate("2026-03-03", 420, 480)];
     const projects = [makeProject("ProjectA", 480)];
     const { rows } = distributor.compute(dates, projects);
 
     assert.strictEqual(rows.length, 1);
-    assert.strictEqual(rows[0].hours, 420);
+    assert.strictEqual(rows[0].hours, 480);
   });
 
-  test("delta < 0, fractional: rounded to nearest 30 min", () => {
-    // workTime 435, normalHours 480 → delta = -45 → Math.round(-1.5)*30 = -30 → target = 450
-    const dates = [makeDate("2026-03-03", 435, 480)];
+  test("workTime 0 but normalHours > 0: day still gets filled", () => {
+    // workTime 0, normalHours 480 → target is normalHours (480), not skipped
+    const dates = [makeDate("2026-03-03", 0, 480)];
     const projects = [makeProject("ProjectA", 480)];
     const { rows } = distributor.compute(dates, projects);
 
     assert.strictEqual(rows.length, 1);
-    assert.strictEqual(rows[0].hours, 450);
+    assert.strictEqual(rows[0].hours, 480);
   });
 
   test("targetMinutes <= 0: day is skipped", () => {

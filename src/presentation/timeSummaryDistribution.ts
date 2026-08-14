@@ -21,12 +21,10 @@ export interface FillByLargestResult {
 }
 
 export function computeTargetMinutesForDate(entry: DateEntry): number {
-  const delta = entry.workTime - entry.normalHours;
-  if (delta >= 0) {
-    return entry.normalHours;
-  }
-  const distributedDelta = Math.round(delta / 30) * 30;
-  return entry.normalHours + distributedDelta;
+  // Always aim to fill every day up to its normal hours; any real shortfall
+  // is naturally absorbed by bucket exhaustion / the delta distributor
+  // rather than zeroing out low-activity days.
+  return entry.normalHours;
 }
 
 export class FillByLargestDistributor {
