@@ -38,16 +38,18 @@ export class FillByLargestDistributor {
       .sort((a, b) => b.totalTime - a.totalTime)
       .map((e) => ({ project: e.project, remaining: e.totalTime }));
 
+    const totalAvailable = buckets.reduce((sum, b) => sum + b.remaining, 0);
+    const targets = this.computeBalancedTargets(dateEntries, totalAvailable);
+
     let projectIndex = 0;
 
-    for (const entry of dateEntries) {
-      const targetMinutes = this.computeTargetMinutes(entry);
+    for (let i = 0; i < dateEntries.length; i++) {
+      const entry = dateEntries[i];
+      let needed = targets[i];
 
-      if (targetMinutes <= 0) {
+      if (needed <= 0) {
         continue;
       }
-
-      let needed = targetMinutes;
 
       while (needed > 0 && projectIndex < buckets.length) {
         const bucket = buckets[projectIndex];
@@ -75,8 +77,39 @@ export class FillByLargestDistributor {
     return { rows, remainingBuckets };
   }
 
-  private computeTargetMinutes(entry: DateEntry): number {
-    return computeTargetMinutesForDate(entry);
+  /**
+   * Spreads any overall shortfall (total target > total available) evenly
+   * across all active days instead of letting the last days run dry, so
+   * every day ends up as close to its normal hours as possible.
+   */
+  private computeBalancedTargets(
+    dateEntries: DateEntry[],
+    totalAvailable: number,
+  ): number[] {
+    const rawTargets = dateEntries.map((entry) =>
+      Math.max(0, computeTargetMinutesForDate(entry)),
+    );
+    const totalTarget = rawTargets.reduce((sum, t) => sum + t, 0);
+
+    if (totalAvailable >= totalTarget) {
+      return rawTargets;
+    }
+
+    const activeIndexes = rawTargets
+      .map((_, i) => i)
+      .filter((i) => rawTargets[i] > 0);
+    const n = activeIndexes.length;
+    const shortfall = totalTarget - totalAvailable;
+    const perDay = Math.floor(shortfall / n);
+    const remainder = shortfall - perDay * n;
+
+    const result = [...rawTargets];
+    activeIndexes.forEach((idx, pos) => {
+      const extra = pos >= n - remainder ? 1 : 0;
+      result[idx] = Math.max(0, result[idx] - perDay - extra);
+    });
+
+    return result;
   }
 }
 
