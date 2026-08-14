@@ -47,9 +47,10 @@ export class EvenDistributionDeltaDistributor implements DeltaDistributor {
       syntheticDates.push({ ...source, normalHours: factor, workTime: factor });
     }
 
-    const { rows } = new FillByLargestDistributor().compute(syntheticDates, [
-      { project: "Delta", totalTime: abs },
-    ]);
+    const { rows } = new FillByLargestDistributor(factor, false).compute(
+      syntheticDates,
+      [{ project: "Delta", totalTime: abs }],
+    );
 
     // Aggregate minutes per date into one row each
     const byDate = new Map<string, number>();

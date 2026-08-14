@@ -16,13 +16,14 @@ export class TimeSummaryViewModel {
   private distributionStartDate: string = "";
   private distributionEndDate: string = "";
   private readonly algorithm: DistributionAlgorithm = "FillByLargest";
-  private readonly distributor = new FillByLargestDistributor();
+  private readonly distributor: FillByLargestDistributor;
 
   private deltaAlgorithmType: DeltaAlgorithmType = "EvenDistribution";
   private deltaConfig: Map<string, string> = new Map();
   private deltaDistributor: DeltaDistributor;
 
   constructor(private readonly viewGroupByMinutes: number) {
+    this.distributor = new FillByLargestDistributor(viewGroupByMinutes);
     this.deltaDistributor = new EvenDistributionDeltaDistributor(
       viewGroupByMinutes,
     );

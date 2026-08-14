@@ -28,6 +28,13 @@ export function computeTargetMinutesForDate(entry: DateEntry): number {
 }
 
 export class FillByLargestDistributor {
+  // balanceShortfall=false keeps the original sequential fill, used internally
+  // by delta distributors that rely on exact slot-by-slot consumption order.
+  constructor(
+    private readonly timeslotMinutes: number = 15,
+    private readonly balanceShortfall: boolean = true,
+  ) {}
+
   compute(
     dateEntries: DateEntry[],
     summaryEntries: SummaryEntry[],
@@ -39,7 +46,11 @@ export class FillByLargestDistributor {
       .map((e) => ({ project: e.project, remaining: e.totalTime }));
 
     const totalAvailable = buckets.reduce((sum, b) => sum + b.remaining, 0);
-    const targets = this.computeBalancedTargets(dateEntries, totalAvailable);
+    const targets = this.balanceShortfall
+      ? this.computeBalancedTargets(dateEntries, totalAvailable)
+      : dateEntries.map((entry) =>
+          Math.max(0, computeTargetMinutesForDate(entry)),
+        );
 
     let projectIndex = 0;
 
@@ -100,13 +111,18 @@ export class FillByLargestDistributor {
       .filter((i) => rawTargets[i] > 0);
     const n = activeIndexes.length;
     const shortfall = totalTarget - totalAvailable;
-    const perDay = Math.floor(shortfall / n);
-    const remainder = shortfall - perDay * n;
+
+    // Reduce targets in whole timeslot units so results honour the view's grouping.
+    const slot = Math.max(1, this.timeslotMinutes);
+    const shortfallSlots = Math.ceil(shortfall / slot);
+    const perDaySlots = Math.floor(shortfallSlots / n);
+    const remainderSlots = shortfallSlots - perDaySlots * n;
 
     const result = [...rawTargets];
     activeIndexes.forEach((idx, pos) => {
-      const extra = pos >= n - remainder ? 1 : 0;
-      result[idx] = Math.max(0, result[idx] - perDay - extra);
+      const extraSlot = pos >= n - remainderSlots ? 1 : 0;
+      const reduction = (perDaySlots + extraSlot) * slot;
+      result[idx] = Math.max(0, result[idx] - reduction);
     });
 
     return result;
