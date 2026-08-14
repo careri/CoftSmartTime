@@ -391,10 +391,11 @@ export class TimeSummaryProvider {
       d <= this.endDate;
       d.setDate(d.getDate() + 1)
     ) {
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const saved = await this.timeReportRepository.readReport(d);
       if (saved) {
         const report: TimeReport = {
-          date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+          date,
           entries: saved.entries.map((e) => ({
             key: e.key,
             branch: e.branch,
@@ -410,6 +411,12 @@ export class TimeSummaryProvider {
           hasSavedReport: true,
         };
         reports.push(report);
+      } else {
+        reports.push({
+          date,
+          entries: [],
+          hasSavedReport: false,
+        });
       }
     }
     return reports;

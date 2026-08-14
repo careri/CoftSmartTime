@@ -625,3 +625,58 @@ suite("TimeSummaryProvider Working Hours Test Suite", () => {
     assert.strictEqual(summaryData.grandTotalNormalMinutes, 420);
   });
 });
+
+suite("TimeSummaryProvider loadReports Test Suite", () => {
+  function makeProviderWithConfig(config: CoftConfig): TimeSummaryProvider {
+    const outputChannel = vscode.window.createOutputChannel("TimeSummary Test");
+    const logger = new Logger(outputChannel, false);
+    return new TimeSummaryProvider(config, logger);
+  }
+
+  test("loadReports: includes dates with no saved report", async () => {
+    const testRoot = path.join(
+      os.tmpdir(),
+      `coft-loadreports-test-${Date.now()}`,
+    );
+    const config = createTestConfig(testRoot);
+    const provider = makeProviderWithConfig(config);
+    // 2026-03-02 is a Monday; range covers Mon-Wed with only Monday saved
+    (provider as any).startDate = new Date(2026, 2, 2);
+    (provider as any).endDate = new Date(2026, 2, 4);
+    (provider as any).timeReportRepository.readReport = async (d: Date) => {
+      if (d.getDate() === 2) {
+        return { entries: [{ key: "09:00", branch: "main", directory: "/p" }] };
+      }
+      return null;
+    };
+    const reports: TimeReport[] = await (provider as any).loadReports();
+    assert.strictEqual(reports.length, 3);
+    const dates = reports.map((r) => r.date);
+    assert.deepStrictEqual(dates, ["2026-03-02", "2026-03-03", "2026-03-04"]);
+    const noReportDay = reports.find((r) => r.date === "2026-03-03");
+    assert.strictEqual(noReportDay!.entries.length, 0);
+    assert.strictEqual((noReportDay as any).hasSavedReport, false);
+    const savedDay = reports.find((r) => r.date === "2026-03-02");
+    assert.strictEqual((savedDay as any).hasSavedReport, true);
+    assert.strictEqual(savedDay!.entries.length, 1);
+  });
+
+  test("loadReports: dates without saved reports are included and marked in computeSummary", async () => {
+    const testRoot = path.join(
+      os.tmpdir(),
+      `coft-loadreports-test2-${Date.now()}`,
+    );
+    const config = createTestConfig(testRoot);
+    const provider = makeProviderWithConfig(config);
+    (provider as any).startDate = new Date(2026, 2, 2);
+    (provider as any).endDate = new Date(2026, 2, 3);
+    (provider as any).timeReportRepository.readReport = async () => null;
+    const reports: TimeReport[] = await (provider as any).loadReports();
+    const summary = (provider as any).computeSummary(reports);
+    assert.strictEqual(summary.dateEntries.length, 2);
+    assert.strictEqual(
+      summary.dateEntries.every((d: any) => d.include),
+      true,
+    );
+  });
+});
