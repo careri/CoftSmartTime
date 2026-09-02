@@ -1,0 +1,63 @@
+# CLAUDE.md
+
+## Conversation style
+
+- Use brief results.
+- Ask before changing code that isn't unit tests.
+- Ask before investigating further than the user's question.
+
+## Plans
+
+**NEVER ask the user whether to implement — always write the proposed solution into the plan file first, then stop and wait for confirmation. Do not implement anything until the user explicitly confirms.**
+
+When working on plans always write a suggested solution back into the plan file (e.g. `CHANGE.PLAN.md`) before starting to implement, then stop and wait for the user to confirm before proceeding. This allows for feedback and course correction before investing time in implementation. The plan should include:
+
+- A clear description of the problem being solved
+- A proposed solution with key steps and components
+- Any assumptions or constraints
+- Potential edge cases and how they will be handled
+
+Plans live at the repo root as `<name>.PLAN.md` (e.g. `CHANGE.PLAN.md`). Note that `.gitignore`
+excludes `CHANGE*.md`, `BUG*.md` and `tmp/`, so plan and scratch files stay untracked.
+
+## What this repo is
+
+COFT SmartTime (`coft-smarttime`) is a VS Code extension that passively tracks file saves and builds
+time reports from the recorded activity. `.github/copilot-instructions.md` is the fuller reference
+for architecture, data storage format, key types, webview UI and configuration — read it rather than
+restating it here. `AGENTS.md` is a short duplicate of the conventions below.
+
+## Commands
+
+- Build: `npm run compile` (runs `npm run lint`, then bundles `src/extension.ts` with esbuild to
+  `out/extension.js`; `.html` files are inlined via the esbuild text loader)
+- Watch: `npm run watch`
+- Lint: `npm run lint` (eslint over `src`)
+- Test: `npm test` — the script already sets `DISPLAY=:99` and wraps `xvfb-run -a`, so no manual
+  `DISPLAY=` prefix is needed. `pretest` compiles and then type-checks with `npx tsc`.
+- Package VSIX: `bash build.vsix.sh` (deletes existing `*.vsix`, then `npx @vscode/vsce package`)
+
+## Source layout notes
+
+- Tests are colocated with the code they cover as `src/**/*.test.ts` (not in a `src/test/` folder),
+  compiled to `out/` and run from `out/**/*.test.js`.
+- Each folder (`application`, `presentation`, `services`, `storage`) has an `index.ts` barrel.
+- `src/presentation/` holds the webview layer, including `timeReportTemplate.html` and the
+  `timeSummary*` distribution/builder/view-model modules.
+- `src/types/` holds shared type declarations (`operation.ts`, `html.d.ts`).
+- The source layout listing in `.github/copilot-instructions.md` predates several of these files;
+  trust the filesystem over that listing.
+
+## Code conventions
+
+**USE_SMALL_CLASSES – prefer many small classes with single responsibility over large classes. If a
+class exceeds ~200 lines, consider refactoring into smaller components.**
+
+- TypeScript, `strict` mode; ES2022 target, Node16 modules
+- Always use curly brackets (no bracketless single-line blocks)
+- Never use the `var` keyword
+- One class per file (`max-classes-per-file` is an eslint error)
+- All writes to the data root go through `OperationQueueWriter` — never write directly
+- Repositories are CRUD only; business logic belongs in the wrapping service
+- Unit tests are created without asking; ask before changing non-test code
+- Builds fail on unused locals/parameters (`tsconfig`) and unused vars (eslint)
