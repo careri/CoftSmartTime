@@ -62,6 +62,13 @@
           "maximum": 300,
           "description": "Interval in seconds for batch processing (60-300)"
         },
+        "coft.smarttime.gitScanSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 300,
+          "description": "How often (in seconds) to scan git for files changed on disk without a save event (e.g. edits made by AI agents or CLI tools). Valid range 10-300. Use 0 to disable."
+        },
         "coft.smarttime.viewGroupByMinutes": {
           "type": "number",
           "default": 15,

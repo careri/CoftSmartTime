@@ -5,6 +5,7 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 ## Features
 
 - **Automatic Tracking**: Records every file save with timestamp, directory, and git branch information
+- **Git Scan**: Periodically asks git which files changed on disk, so edits made without a save event (AI agents, CLI tools) are still tracked
 - **Batch Processing**: Periodically processes saved files and commits them to a git repository
 - **Time Reports**: View and annotate your work activity grouped by time intervals
 - **Project Mapping**: Map branches to projects with persistent project assignments
@@ -36,6 +37,7 @@ A VS Code extension that automatically tracks your file saves and helps you gene
 
 - `coft.smarttime.root`: Root directory for COFT data storage. Leave empty to use default (`~/.coft.smarttime`). If set to an invalid path, the default is used.
 - `coft.smarttime.intervalSeconds`: Interval in seconds for batch processing (60-300, default: 60)
+- `coft.smarttime.gitScanSeconds`: How often (in seconds) to scan git for files changed on disk without a save event (10-300, default: 30). Set to `0` to disable
 - `coft.smarttime.viewGroupByMinutes`: Time grouping in minutes for time report view (must divide evenly into 60, default: 15)
 - `coft.smarttime.branchTaskUrl`: Optional URL pattern for linking branches to tasks. Use `{branch}` as placeholder (e.g. `https://jira.example.com/browse/{branch}`)
 - `coft.smarttime.exportDir`: Optional directory path for exporting time reports. Leave empty to disable export.
@@ -70,7 +72,8 @@ root/
 ### Workflow
 
 1. **Save Hook**: Every file save creates an entry in the queue
-2. **Batch Processing**: At configured intervals, queued entries are submitted as an operation request
+2. **Git Scan**: Every 30 seconds, `git status` lists the dirty and untracked files in each workspace folder; any whose modification time is newer than the previous scan gets a queue entry too. Ignored files are skipped, so build output never counts
+3. **Batch Processing**: At configured intervals, queued entries are submitted as an operation request
 3. **Operation Queue**: A processor acquires a file lock, writes data, and commits to git
 4. **Housekeeping**: On the first commit each day, runs `git gc`, pushes to the backup repo, and exports time reports if configured
 5. **Time Reports**: View and annotate your work history by day, with project assignments and editable start/end times

@@ -1,5 +1,6 @@
 export { BatchRepository } from "./batchRepository";
 export { GitRepository } from "./gitRepository";
+export { GitStatusReader } from "./gitStatusReader";
 export { OperationRepository } from "./operationRepository";
 export { ProjectRepository } from "./projectRepository";
 export { QueueRepository } from "./queueRepository";

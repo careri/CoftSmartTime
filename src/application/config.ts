@@ -13,6 +13,8 @@ export interface CoftConfig {
   data: string;
   backup: string;
   intervalSeconds: number;
+  /** How often to scan git for changed files. 0 disables the scan. */
+  gitScanSeconds: number;
   viewGroupByMinutes: number;
   branchTaskUrl: string;
   exportDir: string;
@@ -78,6 +80,19 @@ export class ConfigManager {
         `Warning: intervalSeconds (${intervalSeconds}) is out of range. Using default value: 60`,
       );
       intervalSeconds = 60;
+    }
+
+    // Validate git scan seconds (0 = disabled)
+    let gitScanSeconds = config.get<number>("gitScanSeconds", 30);
+    if (
+      typeof gitScanSeconds !== "number" ||
+      isNaN(gitScanSeconds) ||
+      (gitScanSeconds !== 0 && (gitScanSeconds < 10 || gitScanSeconds > 300))
+    ) {
+      this.logger.info(
+        `Warning: gitScanSeconds (${gitScanSeconds}) is invalid. Using default value: 30`,
+      );
+      gitScanSeconds = 30;
     }
 
     // Validate view group by minutes
@@ -175,6 +190,7 @@ export class ConfigManager {
       data: path.join(root, "data"),
       backup: path.join(root, "backup"),
       intervalSeconds,
+      gitScanSeconds,
       viewGroupByMinutes,
       branchTaskUrl,
       exportDir,

@@ -169,6 +169,7 @@ suite("resolveWorkingHours Test Suite", () => {
       data: path.join(root, "data"),
       backup: path.join(root, "backup"),
       intervalSeconds: 60,
+      gitScanSeconds: 30,
       viewGroupByMinutes: 15,
       branchTaskUrl: "",
       exportDir: "",
