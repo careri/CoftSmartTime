@@ -4,9 +4,10 @@ import { ConfigManager } from "./application/config";
 import { StorageManager } from "./storage/storage";
 import { GitManager } from "./storage/git";
 import { BatchProcessor } from "./application/batchProcessor";
-import { GitChangeWatcher } from "./application/gitChangeWatcher";
+import { ChangeWatcher } from "./application/changeWatcher";
 import { GitStatusReader } from "./storage/gitStatusReader";
 import { GitScanService } from "./services/gitScanService";
+import { FolderScanService } from "./services/folderScanService";
 import { OperationQueueProcessor } from "./application/operationQueueProcessor";
 import { OperationQueueWriter } from "./application/operationQueueWriter";
 import { TimeReportProvider } from "./presentation/timeReport";
@@ -16,7 +17,7 @@ import { Logger } from "./utils/logger";
 let outputChannel: vscode.OutputChannel;
 let logger: Logger;
 let batchProcessor: BatchProcessor | null = null;
-let gitChangeWatcher: GitChangeWatcher | null = null;
+let changeWatcher: ChangeWatcher | null = null;
 let operationQueueProcessor: OperationQueueProcessor | null = null;
 let timeReportProvider: TimeReportProvider | null = null;
 let timeSummaryProvider: TimeSummaryProvider | null = null;
@@ -135,9 +136,9 @@ function shutdown(): void {
     batchProcessor.stop();
     batchProcessor = null;
   }
-  if (gitChangeWatcher) {
-    gitChangeWatcher.stop();
-    gitChangeWatcher = null;
+  if (changeWatcher) {
+    changeWatcher.stop();
+    changeWatcher = null;
   }
   if (operationQueueProcessor) {
     operationQueueProcessor.stop();
@@ -161,7 +162,7 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     logger.info(`COFT_ROOT: ${config.root}`);
     logger.info(`COFT_INTERVAL_SECONDS: ${config.intervalSeconds}`);
     logger.info(`COFT_VIEW_GROUP_BY_MINUTES: ${config.viewGroupByMinutes}`);
-    logger.info(`COFT_GIT_SCAN_SECONDS: ${config.gitScanSeconds}`);
+    logger.info(`COFT_CHANGE_SCAN_SECONDS: ${config.changeScanSeconds}`);
 
     // Initialize storage
     storage = new StorageManager(config, logger);
@@ -179,19 +180,20 @@ async function initialize(context: vscode.ExtensionContext): Promise<boolean> {
     batchProcessor = new BatchProcessor(config, storage, logger);
     batchProcessor.start();
 
-    // Start git change watcher (catches changes without a save event)
+    // Start change watcher (catches changes without a save event)
     const gitScanService = new GitScanService(
       new GitStatusReader(logger),
       logger,
     );
-    gitChangeWatcher = new GitChangeWatcher(
+    changeWatcher = new ChangeWatcher(
       config,
       storage,
       git,
       gitScanService,
+      new FolderScanService(logger),
       logger,
     );
-    gitChangeWatcher.start();
+    changeWatcher.start();
 
     // Start operation queue processor
     operationQueueProcessor = new OperationQueueProcessor(

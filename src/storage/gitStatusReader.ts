@@ -19,6 +19,11 @@ export class GitStatusReader {
     this.logger = logger;
   }
 
+  /** True when the folder is inside a git working tree. */
+  async isRepository(cwd: string): Promise<boolean> {
+    return (await this.getToplevel(cwd)) !== null;
+  }
+
   /** Absolute paths of files git reports as changed. Empty when not a git repo. */
   async getChangedFiles(cwd: string): Promise<string[]> {
     const toplevel = await this.getToplevel(cwd);

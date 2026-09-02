@@ -22,7 +22,7 @@ function createTestConfig(testRoot: string): CoftConfig {
     data: path.join(testRoot, "data"),
     backup: path.join(testRoot, "backup"),
     intervalSeconds: 60,
-    gitScanSeconds: 30,
+    changeScanSeconds: 30,
     viewGroupByMinutes: 15,
     branchTaskUrl: "",
     exportDir: "",

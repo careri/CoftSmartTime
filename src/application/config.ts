@@ -13,8 +13,8 @@ export interface CoftConfig {
   data: string;
   backup: string;
   intervalSeconds: number;
-  /** How often to scan git for changed files. 0 disables the scan. */
-  gitScanSeconds: number;
+  /** How often to scan for changed files without a save event. 0 disables it. */
+  changeScanSeconds: number;
   viewGroupByMinutes: number;
   branchTaskUrl: string;
   exportDir: string;
@@ -82,17 +82,18 @@ export class ConfigManager {
       intervalSeconds = 60;
     }
 
-    // Validate git scan seconds (0 = disabled)
-    let gitScanSeconds = config.get<number>("gitScanSeconds", 30);
+    // Validate scan seconds (0 = disabled)
+    let changeScanSeconds = config.get<number>("changeScanSeconds", 30);
     if (
-      typeof gitScanSeconds !== "number" ||
-      isNaN(gitScanSeconds) ||
-      (gitScanSeconds !== 0 && (gitScanSeconds < 10 || gitScanSeconds > 300))
+      typeof changeScanSeconds !== "number" ||
+      isNaN(changeScanSeconds) ||
+      (changeScanSeconds !== 0 &&
+        (changeScanSeconds < 10 || changeScanSeconds > 300))
     ) {
       this.logger.info(
-        `Warning: gitScanSeconds (${gitScanSeconds}) is invalid. Using default value: 30`,
+        `Warning: changeScanSeconds (${changeScanSeconds}) is invalid. Using default value: 30`,
       );
-      gitScanSeconds = 30;
+      changeScanSeconds = 30;
     }
 
     // Validate view group by minutes
@@ -190,7 +191,7 @@ export class ConfigManager {
       data: path.join(root, "data"),
       backup: path.join(root, "backup"),
       intervalSeconds,
-      gitScanSeconds,
+      changeScanSeconds,
       viewGroupByMinutes,
       branchTaskUrl,
       exportDir,

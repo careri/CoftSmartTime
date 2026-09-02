@@ -2,7 +2,7 @@
   "name": "coft-smarttime",
   "displayName": "coft.smarttime",
   "description": "Time tracker using changed files",
-  "version": "0.0.74",
+  "version": "0.0.75",
   "repository": {
     "type": "git",
     "url": "https://github.com/careri/CoftSmartTime.git"
@@ -62,12 +62,12 @@
           "maximum": 300,
           "description": "Interval in seconds for batch processing (60-300)"
         },
-        "coft.smarttime.gitScanSeconds": {
+        "coft.smarttime.changeScanSeconds": {
           "type": "number",
           "default": 30,
           "minimum": 0,
           "maximum": 300,
-          "description": "How often (in seconds) to scan git for files changed on disk without a save event (e.g. edits made by AI agents or CLI tools). Valid range 10-300. Use 0 to disable."
+          "description": "How often (in seconds) to scan for files changed on disk without a save event (e.g. edits made by AI agents or CLI tools). Valid range 10-300. Use 0 to disable."
         },
         "coft.smarttime.viewGroupByMinutes": {
           "type": "number",

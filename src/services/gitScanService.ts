@@ -1,4 +1,5 @@
 import * as fs from "fs/promises";
+import { ChangeScanner } from "./changeScanner";
 import { GitStatusReader } from "../storage/gitStatusReader";
 import { Logger } from "../utils/logger";
 
@@ -17,7 +18,7 @@ export type StatFunction = (filePath: string) => Promise<FileStat>;
  * `.gitignore` filtering comes for free) and the file mtime decides whether the
  * change happened since the previous scan.
  */
-export class GitScanService {
+export class GitScanService implements ChangeScanner {
   private statusReader: GitStatusReader;
   private logger: Logger;
   private stat: StatFunction;
@@ -30,6 +31,11 @@ export class GitScanService {
     this.statusReader = statusReader;
     this.logger = logger;
     this.stat = stat;
+  }
+
+  /** True when the folder is inside a git working tree. */
+  async canScan(cwd: string): Promise<boolean> {
+    return this.statusReader.isRepository(cwd);
   }
 
   /**

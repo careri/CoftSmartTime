@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { CoftConfig } from "./config";
+import { ChangeScanner } from "../services/changeScanner";
 import { GitScanService } from "../services/gitScanService";
 import { Logger } from "../utils/logger";
 
@@ -26,14 +27,20 @@ export type FolderProvider = () => readonly vscode.WorkspaceFolder[];
  * Timer that queues activity for file changes that never raised a save event —
  * writes made by AI agents or CLI tools straight to disk.
  *
+ * Each tick picks a scanner per workspace folder: git repositories are scanned
+ * with `git status` (cheap and `.gitignore`-aware), everything else falls back
+ * to a directory walk. The check runs every tick, so a folder that becomes a
+ * repository later is picked up without a restart.
+ *
  * Holds the last scan timestamp per workspace folder in memory. A folder is
  * baselined on first sight so activation does not backfill everything dirty.
  */
-export class GitChangeWatcher {
+export class ChangeWatcher {
   private config: CoftConfig;
   private storage: QueueEntryWriter;
   private git: BranchResolver;
-  private scanService: GitScanService;
+  private gitScanService: GitScanService;
+  private folderScanService: ChangeScanner;
   private logger: Logger;
   private folderProvider: FolderProvider;
   private timer: NodeJS.Timeout | null = null;
@@ -44,7 +51,8 @@ export class GitChangeWatcher {
     config: CoftConfig,
     storage: QueueEntryWriter,
     git: BranchResolver,
-    scanService: GitScanService,
+    gitScanService: GitScanService,
+    folderScanService: ChangeScanner,
     logger: Logger,
     folderProvider: FolderProvider = () =>
       vscode.workspace.workspaceFolders ?? [],
@@ -52,24 +60,25 @@ export class GitChangeWatcher {
     this.config = config;
     this.storage = storage;
     this.git = git;
-    this.scanService = scanService;
+    this.gitScanService = gitScanService;
+    this.folderScanService = folderScanService;
     this.logger = logger;
     this.folderProvider = folderProvider;
   }
 
   start(): void {
-    if (this.config.gitScanSeconds <= 0) {
-      this.logger.info("Git change watcher disabled (gitScanSeconds = 0)");
+    if (this.config.changeScanSeconds <= 0) {
+      this.logger.info("Change watcher disabled (changeScanSeconds = 0)");
       return;
     }
 
     this.logger.info(
-      `Starting git change watcher with interval: ${this.config.gitScanSeconds}s`,
+      `Starting change watcher with interval: ${this.config.changeScanSeconds}s`,
     );
 
     this.timer = setInterval(
       () => this.scanOnce(),
-      this.config.gitScanSeconds * 1000,
+      this.config.changeScanSeconds * 1000,
     );
   }
 
@@ -77,14 +86,14 @@ export class GitChangeWatcher {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-      this.logger.info("Git change watcher stopped");
+      this.logger.info("Change watcher stopped");
     }
   }
 
   /** Runs one scan across all workspace folders. Returns queue entries written. */
   async scanOnce(now: number = Date.now()): Promise<number> {
     if (this.isScanning) {
-      this.logger.debug("Git scan still running, skipping this tick");
+      this.logger.debug("Scan still running, skipping this tick");
       return 0;
     }
 
@@ -96,7 +105,7 @@ export class GitChangeWatcher {
       }
       return written;
     } catch (error) {
-      this.logger.error(`Error in git change scan: ${error}`);
+      this.logger.error(`Error in change scan: ${error}`);
       return 0;
     } finally {
       this.isScanning = false;
@@ -112,16 +121,16 @@ export class GitChangeWatcher {
 
     if (since === undefined) {
       this.lastScan.set(workspaceRoot, now);
-      this.logger.debug(`Git scan baseline set for ${workspaceRoot}`);
+      this.logger.debug(`Scan baseline set for ${workspaceRoot}`);
       return 0;
     }
 
     try {
-      const files = await this.scanService.findModifiedSince(
-        workspaceRoot,
-        since,
-        now,
-      );
+      const useGit = await this.gitScanService.canScan(workspaceRoot);
+      const scanner: ChangeScanner = useGit
+        ? this.gitScanService
+        : this.folderScanService;
+      const files = await scanner.findModifiedSince(workspaceRoot, since, now);
 
       let written = 0;
       if (files.length > 0) {
@@ -143,9 +152,13 @@ export class GitChangeWatcher {
           );
           written++;
         }
-        this.logger.debug(
-          `Git scan queued ${written} entry/entries for ${workspaceRoot}`,
-        );
+        // INFO, so a running scan is verifiable without debug logs. Silent
+        // when nothing changed, so at most one line per folder per tick.
+        if (written > 0) {
+          this.logger.info(
+            `Change scan queued ${written} entry/entries for ${workspaceRoot} (${useGit ? "git" : "folder"} scan)`,
+          );
+        }
       }
 
       // Only advance on success, so a failed scan retries the same window.

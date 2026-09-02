@@ -13,9 +13,10 @@ suite("GitScanService Test Suite", () => {
     logger = new Logger(outputChannel, true);
   });
 
-  function fakeReader(files: string[]): GitStatusReader {
+  function fakeReader(files: string[], isRepository = true): GitStatusReader {
     return {
       getChangedFiles: async () => files,
+      isRepository: async () => isRepository,
     } as unknown as GitStatusReader;
   }
 
@@ -33,6 +34,22 @@ suite("GitScanService Test Suite", () => {
       };
     };
   }
+
+  test("canScan follows the reader's repository check", async () => {
+    const inRepo = new GitScanService(
+      fakeReader([], true),
+      logger,
+      fakeStat({}),
+    );
+    const outside = new GitScanService(
+      fakeReader([], false),
+      logger,
+      fakeStat({}),
+    );
+
+    assert.strictEqual(await inRepo.canScan("/repo"), true);
+    assert.strictEqual(await outside.canScan("/plain"), false);
+  });
 
   test("returns files modified after the last scan", async () => {
     const service = new GitScanService(

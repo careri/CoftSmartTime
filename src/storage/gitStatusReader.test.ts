@@ -52,6 +52,18 @@ suite("GitStatusReader Test Suite", () => {
     }
   });
 
+  test("isRepository is true inside a repo and false outside", async () => {
+    const plain = path.join(testRoot, "plain");
+    await fs.mkdir(plain, { recursive: true });
+
+    assert.strictEqual(await reader.isRepository(repo), true);
+    assert.strictEqual(
+      await reader.isRepository(path.join(repo, "sub-missing")),
+      false,
+    );
+    assert.strictEqual(await reader.isRepository(plain), false);
+  });
+
   test("returns nothing for a clean repo", async () => {
     const files = await reader.getChangedFiles(repo);
     assert.deepStrictEqual(files, []);
