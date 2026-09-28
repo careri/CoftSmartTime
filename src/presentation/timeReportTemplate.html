@@ -10,7 +10,7 @@
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
             padding: 20px;
-            padding-top: 52px;
+            padding-top: 72px;
         }
         .header {
             position: fixed;
@@ -24,6 +24,9 @@
             padding: 8px 20px;
             background-color: var(--vscode-editor-background);
             border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .header h1 {
+            margin: 0;
         }
         .navigation {
             display: flex;
@@ -222,7 +225,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>COFT Time Report</h1>
+        <h1>{{dateStr}}</h1>
         <div class="navigation">
             <button id="prevDay">&larr; Previous Day</button>
             <button id="nextDay">Next Day &rarr;</button>
@@ -235,7 +238,6 @@
     <div class="overview-section">
         <h2>Overview</h2>
         <div class="day-range">
-            <span>{{dateStr}}</span>
             <span>Start: {{startOfDay}}</span>
             <span>End: {{endOfDay}}</span>
             <span class="worked-hours">Total: {{totalHours}}</span>
